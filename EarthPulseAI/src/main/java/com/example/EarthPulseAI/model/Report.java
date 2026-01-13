@@ -18,7 +18,9 @@ public class Report {
 
     private String address;
     private String state;
-    private String city;
+    private String country;
+    private String district;
+    private String mandal;
     private String village;
     private Double latitude;
     private Double longitude;

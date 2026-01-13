@@ -20,9 +20,9 @@ const Login = ({ setToken, setUser }) => {
 
       const user = userRes.data;
       
-      // Basic check if user's role matches selected role (AUTHORITY matches both selection options in code)
+      // Allow MODERATOR and ADMINISTRATOR to login as AUTHORITY (Officer)
       const roleMatch = (selectedRole === 'CITIZEN' && user.role === 'CITIZEN') ||
-                        (selectedRole === 'AUTHORITY' && user.role === 'AUTHORITY') ||
+                        (selectedRole === 'AUTHORITY' && (user.role === 'AUTHORITY' || user.role === 'MODERATOR' || user.role === 'ADMINISTRATOR')) ||
                         (selectedRole === 'ADMINISTRATOR' && user.role === 'ADMINISTRATOR');
 
       if (!roleMatch) {

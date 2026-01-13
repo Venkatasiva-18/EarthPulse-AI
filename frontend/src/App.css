@@ -35,7 +35,7 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 2100;
 }
 
 .nav-item {
@@ -360,6 +360,68 @@ body {
   font-weight: bold;
 }
 
+.pollution-report-form {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
+.pollution-report-form .form-group input,
+.pollution-report-form .form-group select,
+.pollution-report-form .form-group textarea,
+.pollution-report-form .form-row input {
+  padding: 12px 15px;
+  border-radius: 10px;
+  border: 2px solid #f0f0f0;
+  background-color: #f9f9f9;
+}
+
+.pollution-report-form .form-group input:focus,
+.pollution-report-form .form-row input:focus,
+.pollution-report-form .form-group textarea:focus {
+  background-color: #fff;
+  border-color: var(--primary);
+}
+
+.pollution-report-form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.pollution-report-form .btn {
+  padding: 14px;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Notifications Styles */
+.notifications-dropdown {
+  animation: slideDown 0.3s ease-out;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) #f0f0f0;
+}
+
+.notifications-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notifications-dropdown::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+.notifications-dropdown div:hover {
+  background-color: #f8f9fa !important;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Animations */
 @keyframes slideIn {
   from { transform: translateX(100%); opacity: 0; }
@@ -398,13 +460,93 @@ body {
 .back-btn {
   background: rgba(26, 35, 126, 0.05);
   border: 1px solid rgba(26, 35, 126, 0.1);
-  color: var(--primary);
-  cursor: pointer;
-  margin-bottom: 20px;
-  font-weight: 600;
   padding: 8px 16px;
   border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 1.5rem;
+  transition: all 0.3s;
+}
+
+/* Admin Table Styling */
+.admin-table-container {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.admin-table th {
+  background: #f8f9fa;
+  color: var(--primary-dark);
+  text-align: left;
+  padding: 12px 15px;
+  border-bottom: 2px solid #edf2f7;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #edf2f7;
+  vertical-align: middle;
+}
+
+.admin-table tr:hover {
+  background-color: #f7fafc;
+}
+
+.role-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.role-ADMINISTRATOR { background: #ffebee; color: #c62828; }
+.role-AUTHORITY { background: #fff3e0; color: #e65100; }
+.role-MODERATOR { background: #e3f2fd; color: #1565c0; }
+.role-CITIZEN { background: #f0f4f8; color: #4a5568; }
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-SUBMITTED { background: #f5f5f5; color: #757575; border: 1px solid #bdbdbd; }
+.status-UNDER_REVIEW { background: #fff8e1; color: #f57c00; border: 1px solid #ffe082; }
+.status-ACTION_TAKEN { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.status-CLOSED { background: #eeeeee; color: #9e9e9e; border: 1px solid #e0e0e0; }
+
+.action-btn {
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-delete {
+  color: #e53e3e;
+  border: 1px solid #fed7d7;
+  background: #fff5f5;
+}
+
+.btn-delete:hover {
+  background: #feb2b2;
+  color: #c53030;
 }
 
 .back-btn:hover {

@@ -16,10 +16,17 @@ public class MLService {
     private final PredictionService predictionService;
 
     public Prediction getPredictionFromML(String location, int hour, int day, int severity, double temp, double humidity) {
+        return getPredictionFromML(location, hour, day, severity, temp, humidity, false, null, null);
+    }
+
+    public Prediction getPredictionFromML(String location, int hour, int day, int severity, double temp, double humidity, boolean detailed) {
+        return getPredictionFromML(location, hour, day, severity, temp, humidity, detailed, null, null);
+    }
+
+    public Prediction getPredictionFromML(String location, int hour, int day, int severity, double temp, double humidity, boolean detailed, Double lat, Double lon) {
         try {
             String pythonCmd = System.getProperty("os.name").toLowerCase().contains("win") ? "py" : "python3";
             
-            // Check potential script locations
             String scriptPath = "ml/predict.py";
             if (!new java.io.File(scriptPath).exists()) {
                 scriptPath = "EarthPulseAI/ml/predict.py";
@@ -27,7 +34,8 @@ public class MLService {
             
             ProcessBuilder processBuilder = new ProcessBuilder(pythonCmd, scriptPath, 
                     String.valueOf(hour), String.valueOf(day), String.valueOf(severity),
-                    String.valueOf(temp), String.valueOf(humidity));
+                    String.valueOf(temp), String.valueOf(humidity),
+                    detailed ? "detailed" : "basic");
             processBuilder.redirectErrorStream(false);
             Process process = processBuilder.start();
 
@@ -64,6 +72,8 @@ public class MLService {
 
             Prediction prediction = new Prediction();
             prediction.setLocation(location);
+            prediction.setLatitude(lat);
+            prediction.setLongitude(lon);
             
             Object aqiValue = resultMap.get("aqiValue");
             if (aqiValue != null) {
@@ -86,7 +96,14 @@ public class MLService {
                 prediction.setConfidencePercentage(0.0);
             }
             
+            if (resultMap.containsKey("pollutantLevels")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Double> pollutants = (Map<String, Double>) resultMap.get("pollutantLevels");
+                prediction.setPollutantLevelsMap(pollutants);
+            }
+            
             prediction.setPredictedFor(LocalDateTime.now());
+            prediction.setTrend(Prediction.TrendDirection.STABLE);
 
             return predictionService.savePrediction(prediction);
 

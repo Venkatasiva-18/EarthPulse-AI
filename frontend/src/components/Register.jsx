@@ -16,12 +16,18 @@ const LocationMarker = ({ setPosition }) => {
     locationfound(e) {
       setPos(e.latlng);
       setPosition(e.latlng);
-      map.flyTo(e.latlng, map.getZoom());
+      map.flyTo(e.latlng, 12);
     },
   });
 
   useEffect(() => {
     map.locate();
+    const handleFlyTo = (e) => {
+      setPos(e.detail);
+      map.flyTo(e.detail, 12);
+    };
+    window.addEventListener('map-fly-to', handleFlyTo);
+    return () => window.removeEventListener('map-fly-to', handleFlyTo);
   }, [map]);
 
   return pos === null ? null : (
@@ -44,11 +50,25 @@ const Register = () => {
     address: '',
     latitude: 20.5937,
     longitude: 78.9629,
-    role: 'CITIZEN'
+    role: 'CITIZEN',
+    department: '',
+    designation: '',
+    profilePicture: ''
   });
   const [error, setError] = useState('');
   const [step, setStep] = useState(1); // 1: Role Selection, 2: Form
   const navigate = useNavigate();
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, profilePicture: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,8 +84,76 @@ const Register = () => {
     }
   };
 
-  const handleLocationChange = (latlng) => {
-    setFormData({ ...formData, latitude: latlng.lat, longitude: latlng.lng });
+  const handleLocationChange = async (latlng) => {
+    const { lat, lng } = latlng;
+    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`);
+      if (response.data && response.data.address) {
+        const addr = response.data.address;
+        console.log("Nominatim Address Object:", addr);
+        
+        // Logical mapping for Indian administrative levels
+        // 1. District: Use the largest administrative unit below State
+        const districtCandidate = addr.state_district || addr.district || addr.county || addr.city || '';
+        
+        // 2. Mandal (Sub-district): Use sub-administrative units
+        const mandalCandidate = addr.subdistrict || addr.tehsil || addr.taluka || addr.municipality || addr.town || '';
+        
+        // 3. Village/Locality: Use most specific local names
+        const villageCandidate = addr.village || addr.hamlet || addr.locality || addr.suburb || addr.neighbourhood || '';
+
+        setFormData(prev => {
+          let finalDistrict = districtCandidate;
+          let finalMandal = mandalCandidate;
+          let finalVillage = villageCandidate;
+
+          // If Mandal is missing, try using City if it wasn't used for District
+          if (!finalMandal) {
+            if (addr.city && addr.city !== finalDistrict) {
+              finalMandal = addr.city;
+            } else if (addr.town && addr.town !== finalDistrict) {
+              finalMandal = addr.town;
+            } else if (addr.suburb) {
+              finalMandal = addr.suburb;
+            }
+          }
+
+          // If Mandal is still same as District, try to find something more specific
+          if (finalMandal === finalDistrict) {
+            finalMandal = addr.subdistrict || addr.tehsil || addr.taluka || addr.town || addr.suburb || '';
+          }
+
+          // Ensure Mandal is NOT the same as District if possible
+          if (finalMandal === finalDistrict && (addr.subdistrict || addr.tehsil || addr.taluka)) {
+             finalMandal = addr.subdistrict || addr.tehsil || addr.taluka;
+          }
+
+          // Final fallback for Mandal: if it's still empty but we have a display_name, 
+          // sometimes the 3rd or 4th component of display_name is the mandal
+          if (!finalMandal && response.data.display_name) {
+            const parts = response.data.display_name.split(',').map(p => p.trim());
+            if (parts.length > 3) {
+              finalMandal = parts[2]; // Usually [Village, Mandal, District, State, Country]
+            }
+          }
+
+          return {
+            ...prev,
+            latitude: lat,
+            longitude: lng,
+            country: addr.country || '',
+            state: addr.state || '',
+            district: finalDistrict,
+            mandal: finalMandal || districtCandidate, // Last resort: use district if mandal still unknown
+            village: finalVillage || finalMandal || '',
+            address: response.data.display_name
+          };
+        });
+      }
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+    }
   };
 
   if (step === 1) {
@@ -120,6 +208,10 @@ const Register = () => {
             <div className="form-group">
               <input type="text" placeholder="Phone Number" value={formData.mobile} onChange={(e) => setFormData({ ...formData, mobile: e.target.value })} required />
             </div>
+            <div className="form-group">
+              <label style={{ fontSize: '0.8rem', color: '#666', marginBottom: '5px', display: 'block' }}>Profile Photo (Optional)</label>
+              <input type="file" accept="image/*" onChange={handleFileChange} />
+            </div>
           </div>
 
           <div className="form-section">
@@ -140,15 +232,34 @@ const Register = () => {
           </div>
 
           <div className="form-section full-width">
-            <label className="map-label">Select your current location on the map:</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label className="map-label" style={{ margin: 0 }}>Select your location on the map:</label>
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                      const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                      handleLocationChange(latlng);
+                      window.dispatchEvent(new CustomEvent('map-fly-to', { detail: latlng }));
+                    });
+                  }
+                }}
+                className="btn"
+                style={{ padding: '5px 15px', fontSize: '0.8rem', background: '#2196f3' }}
+              >
+                📍 Use My Current Location
+              </button>
+            </div>
             <div className="map-wrapper">
               <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <LocationMarker setPosition={handleLocationChange} />
               </MapContainer>
             </div>
-            <div className="coords-display">
-              📍 Selected Coords: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+            <div className="coords-display" style={{ marginTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+              <span>📍 Selected Coords: {Number(formData.latitude).toFixed(4)}, {Number(formData.longitude).toFixed(4)}</span>
+              <span style={{ fontSize: '0.8rem', color: '#666' }}>Tip: Location fields auto-fill when you click the map</span>
             </div>
           </div>
 

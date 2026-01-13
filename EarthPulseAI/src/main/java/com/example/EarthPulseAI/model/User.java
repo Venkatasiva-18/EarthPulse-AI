@@ -40,11 +40,15 @@ public class User {
     @Column(nullable = false)
     private Double longitude;
 
-    @Column(nullable = false)
-    private Integer credibilityScore = 0;
-
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    private String department;
+    private String designation;
+    private Integer credibilityScore = 0;
+    
+    @Column(columnDefinition = "LONGTEXT")
+    private String profilePicture;
 
     public enum Role {
         CITIZEN, MODERATOR, ADMINISTRATOR, AUTHORITY

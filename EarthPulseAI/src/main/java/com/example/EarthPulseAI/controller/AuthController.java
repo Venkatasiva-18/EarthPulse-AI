@@ -51,4 +51,10 @@ public class AuthController {
         String username = authentication.getName();
         return ResponseEntity.ok(userService.findByUsername(username).orElseThrow());
     }
+
+    @PutMapping("/profile")
+    public ResponseEntity<User> updateProfile(@RequestBody User updateDto, Authentication authentication) {
+        String username = authentication.getName();
+        return ResponseEntity.ok(userService.updateUserProfile(username, updateDto));
+    }
 }

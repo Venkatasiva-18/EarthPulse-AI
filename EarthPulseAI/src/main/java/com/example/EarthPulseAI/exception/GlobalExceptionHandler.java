@@ -1,35 +1,27 @@
 package com.example.EarthPulseAI.exception;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.context.request.WebRequest;
-
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.HashMap;
 import java.util.Map;
 
-@ControllerAdvice
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleGlobalException(Exception ex, WebRequest request) {
-        Map<String, String> errorDetails = new HashMap<>();
-        String message = ex.getMessage();
-        
-        // Handle database unique constraint violations
-        if (ex.getMessage() != null && ex.getMessage().contains("Duplicate entry")) {
-            if (ex.getMessage().contains("username")) {
-                message = "Username is already taken.";
-            } else if (ex.getMessage().contains("email")) {
-                message = "Email is already registered.";
-            } else {
-                message = "A record with these details already exists.";
-            }
-        }
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Map<String, String>> handleUnauthorizedException(UnauthorizedException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
 
-        errorDetails.put("message", message);
-        errorDetails.put("type", ex.getClass().getSimpleName());
-        ex.printStackTrace();
-        return ResponseEntity.status(500).body(errorDetails);
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, String>> handleAccessDeniedException(AccessDeniedException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Unauthorized: User is not registered as authority. Contact admin for access.");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 }

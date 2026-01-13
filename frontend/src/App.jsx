@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+const translations = require('./translations');
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -7,9 +8,10 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import AuthorityDashboard from './components/AuthorityDashboard';
+import AdminDashboard from './components/AdminDashboard';
 import Notifications from './components/Notifications';
 import Grievances from './components/Grievances';
-const { translations } = require('./translations');
+import Profile from './components/Profile';
 
 // Fix for default marker icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -69,7 +71,21 @@ const App = () => {
               {token ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {user?.role === 'AUTHORITY' && <Link to="/authority" className="badge verified-badge" style={{ background: '#ff9800', color: 'white' }}>{t.authorityPanel}</Link>}
-                  <span className="user-badge">{user?.name || user?.username}</span>
+                  {(user?.role === 'ADMINISTRATOR' || user?.role === 'MODERATOR' || user?.role === 'AUTHORITY') && (
+                    <Link to="/admin" className="badge verified-badge" style={{ background: '#d32f2f', color: 'white' }}>
+                      {user?.role === 'ADMINISTRATOR' ? t.adminPanel : 'User Directory'}
+                    </Link>
+                  )}
+                  <Link to="/profile" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#eee', overflow: 'hidden', border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {user?.profilePicture ? (
+                        <img src={user.profilePicture} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{user?.name?.[0]}</span>
+                      )}
+                    </div>
+                    <span className="user-badge">{user?.name || user?.username}</span>
+                  </Link>
                   <button onClick={handleLogout} className="btn-logout">{t.logout}</button>
                 </div>
               ) : null}
@@ -83,6 +99,8 @@ const App = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/grievances" element={token ? <Grievances /> : <Navigate to="/login" />} />
           <Route path="/authority" element={token ? <AuthorityDashboard /> : <Navigate to="/login" />} />
+          <Route path="/admin" element={token && (user?.role === 'ADMINISTRATOR' || user?.role === 'MODERATOR' || user?.role === 'AUTHORITY') ? <AdminDashboard /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={token ? <Profile /> : <Navigate to="/login" />} />
         </Routes>
       </div>
     </Router>

@@ -11,6 +11,7 @@ const translations = {
     register: "Register",
     grievances: "Grievances",
     authorityPanel: "Authority Panel",
+    adminPanel: "Admin Panel",
     citizen: "Citizen",
     pollutionControl: "Pollution Control",
     admin: "Admin",
@@ -38,6 +39,7 @@ const translations = {
     register: "पंजीकरण",
     grievances: "शिकायतें",
     authorityPanel: "प्राधिकरण पैनल",
+    adminPanel: "एडमिन पैनल",
     citizen: "नागरिक",
     pollutionControl: "प्रदूषण नियंत्रण",
     admin: "एडमिन",
@@ -55,4 +57,4 @@ const translations = {
   }
 };
 
-module.exports = { translations };
+module.exports = translations;

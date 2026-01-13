@@ -1,6 +1,7 @@
 package com.example.EarthPulseAI.controller;
 
 import com.example.EarthPulseAI.model.Report;
+import com.example.EarthPulseAI.model.User;
 import com.example.EarthPulseAI.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -9,8 +10,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 import com.example.EarthPulseAI.service.UserService;
+import com.example.EarthPulseAI.exception.UnauthorizedException;
 import org.springframework.security.core.Authentication;
 import java.util.Map;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -24,12 +27,10 @@ public class ReportController {
     public ResponseEntity<?> createReport(@RequestBody Report report, Authentication authentication) {
         System.out.println("Received report submission request");
         try {
-            if (authentication == null || !authentication.isAuthenticated()) {
-                return ResponseEntity.status(401).body(Map.of("message", "Authentication required to submit report"));
+            if (authentication != null && authentication.isAuthenticated()) {
+                String username = authentication.getName();
+                userService.findByUsername(username).ifPresent(report::setUser);
             }
-            
-            String username = authentication.getName();
-            userService.findByUsername(username).ifPresent(report::setUser);
             
             if (report.getTimestamp() == null) {
                 report.setTimestamp(java.time.LocalDateTime.now());
@@ -50,12 +51,17 @@ public class ReportController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Report>> getAllReports() {
+    public ResponseEntity<List<Report>> getAllReports(Authentication authentication) {
+        if (authentication != null && authentication.isAuthenticated()) {
+            String username = authentication.getName();
+            User user = userService.getUserByUsername(username);
+            return ResponseEntity.ok(reportService.getReportsForUser(user));
+        }
         return ResponseEntity.ok(reportService.getAllReports());
     }
 
-    @GetMapping("/stats/by-city")
-    public ResponseEntity<List<Object[]>> getReportsCountByCity() {
+    @GetMapping("/stats/by-district")
+    public ResponseEntity<List<Object[]>> getReportsCountByDistrict() {
         return ResponseEntity.ok(reportService.getReportsCountByCity());
     }
 
@@ -76,6 +82,12 @@ public class ReportController {
 
     @PostMapping("/{id}/verify")
     public ResponseEntity<Report> verifyReport(@PathVariable Long id) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userService.getUserByUsername(username);
+        
+        if (!isAuthorized(user)) {
+            throw new UnauthorizedException("Unauthorized: User is not registered as authority");
+        }
         return ResponseEntity.ok(reportService.verifyReport(id));
     }
 
@@ -84,6 +96,18 @@ public class ReportController {
             @PathVariable Long id, 
             @RequestParam Report.ReportStatus status,
             @RequestParam(required = false) String remarks) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userService.getUserByUsername(username);
+        
+        if (!isAuthorized(user)) {
+            throw new UnauthorizedException("Unauthorized: User is not registered as authority");
+        }
         return ResponseEntity.ok(reportService.updateReportStatus(id, status, remarks));
+    }
+
+    private boolean isAuthorized(User user) {
+        return user.getRole() == User.Role.AUTHORITY || 
+               user.getRole() == User.Role.MODERATOR || 
+               user.getRole() == User.Role.ADMINISTRATOR;
     }
 }

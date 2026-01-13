@@ -32,8 +32,9 @@ public class GrievanceController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<List<Grievance>> getAllGrievances() {
-        return ResponseEntity.ok(grievanceService.getAllGrievances());
+    public ResponseEntity<List<Grievance>> getAllGrievances(Authentication authentication) {
+        User user = userService.findByUsername(authentication.getName()).orElseThrow();
+        return ResponseEntity.ok(grievanceService.getAllVisibleGrievances(user));
     }
 
     @PutMapping("/{id}/status")

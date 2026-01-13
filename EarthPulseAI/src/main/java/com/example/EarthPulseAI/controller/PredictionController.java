@@ -29,7 +29,9 @@ public class PredictionController {
             @RequestParam int day, 
             @RequestParam int severity,
             @RequestParam(defaultValue = "25.0") double temp,
-            @RequestParam(defaultValue = "50.0") double humidity) {
-        return ResponseEntity.ok(mlService.getPredictionFromML(location, hour, day, severity, temp, humidity));
+            @RequestParam(defaultValue = "50.0") double humidity,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lon) {
+        return ResponseEntity.ok(mlService.getPredictionFromML(location, hour, day, severity, temp, humidity, true, lat, lon));
     }
 }

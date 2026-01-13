@@ -35,7 +35,7 @@ public class ReportService {
         
         if (report.getConfidenceScore() == 0) {
             double initialConfidence = 50.0;
-            if (report.getUser() != null) {
+            if (report.getUser() != null && report.getUser().getRole() == User.Role.CITIZEN) {
                 // Weigh based on credibility: 50 + (credibility * 2), max 90
                 initialConfidence = Math.min(90.0, 50.0 + (report.getUser().getCredibilityScore() * 2.0));
             }
@@ -49,7 +49,7 @@ public class ReportService {
             userRepository.findAll().stream()
                 .filter(u -> u.getRole() == User.Role.AUTHORITY)
                 .forEach(u -> notificationService.createNotification(u, 
-                    "URGENT: High severity " + report.getPollutionType() + " reported in " + report.getCity(), 
+                    "URGENT: High severity " + report.getPollutionType() + " reported in " + report.getDistrict(), 
                     "CRITICAL"));
         }
 
@@ -69,8 +69,24 @@ public class ReportService {
         return reportRepository.findAll();
     }
 
+    public List<Report> getReportsForUser(User user) {
+        if (user.getRole() == User.Role.ADMINISTRATOR) {
+            return reportRepository.findAll();
+        } else if (user.getRole() == User.Role.MODERATOR) {
+            return reportRepository.findByState(user.getState());
+        } else if (user.getRole() == User.Role.AUTHORITY) {
+            return reportRepository.findByDistrict(user.getDistrict());
+        } else if (user.getRole() == User.Role.CITIZEN) {
+            // Citizens see reports in their district for awareness, or their own village
+            if (user.getDistrict() != null) {
+                return reportRepository.findByDistrict(user.getDistrict());
+            }
+        }
+        return reportRepository.findAll();
+    }
+
     public List<Object[]> getReportsCountByCity() {
-        return reportRepository.countReportsByCity();
+        return reportRepository.countReportsByDistrict();
     }
 
     public List<Object[]> getReportsCountByDate() {
@@ -78,7 +94,7 @@ public class ReportService {
     }
 
     public List<Report> getReportsByLocation(String location) {
-        return reportRepository.findByCity(location);
+        return reportRepository.findByDistrict(location);
     }
     
     public Report upvoteReport(Long reportId) {
@@ -104,7 +120,7 @@ public class ReportService {
         
         // Update user credibility score
         User reporter = report.getUser();
-        if (reporter != null) {
+        if (reporter != null && reporter.getRole() == User.Role.CITIZEN) {
             reporter.setCredibilityScore(reporter.getCredibilityScore() + 1);
             userRepository.save(reporter);
         }
@@ -141,5 +157,10 @@ public class ReportService {
 
     public Report updateReport(Report report) {
         return reportRepository.save(report);
+    }
+
+    public Report getReportById(Long reportId) {
+        return reportRepository.findById(reportId).orElseThrow(() -> 
+            new IllegalArgumentException("Report not found with id: " + reportId));
     }
 }

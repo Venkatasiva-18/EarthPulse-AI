@@ -31,7 +31,7 @@ public class ExportController {
                     .append(report.getPollutionType()).append(",")
                     .append(report.getSeverity()).append(",")
                     .append("\"").append(report.getAddress()).append("\",")
-                    .append(report.getCity()).append(",")
+                    .append(report.getDistrict()).append(",")
                     .append(report.getStatus()).append(",")
                     .append(report.getTimestamp()).append("\n");
         }

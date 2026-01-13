@@ -32,6 +32,17 @@ public class GrievanceService {
         return grievanceRepository.findAll();
     }
 
+    public List<Grievance> getAllVisibleGrievances(User currentUser) {
+        if (currentUser.getRole() == User.Role.ADMINISTRATOR) {
+            return grievanceRepository.findAll();
+        } else if (currentUser.getRole() == User.Role.MODERATOR) {
+            return grievanceRepository.findByUser_State(currentUser.getState());
+        } else if (currentUser.getRole() == User.Role.AUTHORITY) {
+            return grievanceRepository.findByUser_District(currentUser.getDistrict());
+        }
+        return new java.util.ArrayList<>();
+    }
+
     public Grievance updateGrievanceStatus(Long id, Grievance.Status status, String resolution) {
         Grievance grievance = grievanceRepository.findById(id).orElseThrow();
         grievance.setStatus(status);

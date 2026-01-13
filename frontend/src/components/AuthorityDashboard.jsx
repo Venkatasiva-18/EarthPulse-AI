@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { FileText, AlertCircle, CheckCircle, Clock, MapPin, MessageSquare, ShieldCheck } from 'lucide-react';
 
 const AuthorityDashboard = () => {
   const [reports, setReports] = useState([]);
@@ -15,7 +16,10 @@ const AuthorityDashboard = () => {
 
   const fetchReports = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/reports');
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:8080/api/reports', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setReports(response.data);
     } catch (error) {
       console.error('Error fetching reports:', error);
@@ -92,47 +96,93 @@ const AuthorityDashboard = () => {
       </div>
 
       {activeTab === 'REPORTS' ? (
-        <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
-          {filteredReports.map(report => (
-          <div key={report.id} className={`report-card severity-${report.severity.toLowerCase()}`} style={{ height: 'fit-content' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <strong>{report.pollutionType}</strong>
-              <span className={`badge ${report.verified ? 'verified-badge' : ''}`}>{report.status}</span>
+        <div className="admin-table-container">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Incident Details</th>
+                <th>Location Details</th>
+                <th>Status & AI Analysis</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredReports.map(report => (
+                <tr key={report.id}>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 700, color: '#1a237e' }}>{report.pollutionType}</span>
+                      <small style={{ color: '#888' }}>
+                        <Clock size={12} style={{ marginRight: '4px' }} />
+                        {new Date(report.timestamp).toLocaleString()}
+                      </small>
+                      <div className={`severity-badge severity-${report.severity.toLowerCase()}`} style={{ 
+                        display: 'inline-block', width: 'fit-content', fontSize: '0.7rem', 
+                        padding: '2px 6px', borderRadius: '4px', marginTop: '5px',
+                        background: report.severity === 'HIGH' ? '#ffebee' : report.severity === 'MEDIUM' ? '#fff3e0' : '#e8f5e9',
+                        color: report.severity === 'HIGH' ? '#c62828' : report.severity === 'MEDIUM' ? '#e65100' : '#2e7d32'
+                      }}>
+                        {report.severity}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem', gap: '2px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={14} color="#666" /> <strong>{report.address}</strong>
+                      </div>
+                      <span>{report.village}, {report.mandal}</span>
+                      <span style={{ fontWeight: 600 }}>{report.district}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span className={`status-badge status-${report.status}`}>
+                        {report.status.replace('_', ' ')}
+                      </span>
+                      <div style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <ShieldCheck size={14} color={report.confidenceScore > 70 ? '#2e7d32' : '#f57c00'} />
+                        AI Confidence: <strong>{report.confidenceScore}%</strong>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <select 
+                        className="form-control"
+                        defaultValue={report.status}
+                        onChange={(e) => {
+                          const remarks = prompt('Enter authority remarks:');
+                          handleUpdateStatus(report.id, e.target.value, remarks);
+                        }}
+                        style={{ padding: '4px', fontSize: '0.85rem', borderRadius: '4px' }}
+                      >
+                        <option value="SUBMITTED">Submitted</option>
+                        <option value="UNDER_REVIEW">Under Review</option>
+                        <option value="ACTION_TAKEN">Action Taken</option>
+                        <option value="CLOSED">Closed</option>
+                      </select>
+                      <button 
+                        onClick={() => alert(`Full Description: ${report.description}\n\nRemarks: ${report.authorityRemarks || 'None'}`)}
+                        className="btn" 
+                        style={{ padding: '4px 8px', fontSize: '0.75rem', background: '#455a64' }}
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredReports.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>
+              <FileText size={48} style={{ opacity: 0.2, marginBottom: '10px' }} />
+              <p>No reports found for the selected filter.</p>
             </div>
-            <p><strong>Location:</strong> {report.address}, {report.city}</p>
-            <p><strong>Reported:</strong> {new Date(report.timestamp).toLocaleString()}</p>
-            <p><strong>Description:</strong> {report.description}</p>
-            <p><strong>Confidence:</strong> {report.confidenceScore}%</p>
-            
-            <hr />
-            
-            <div className="action-section" style={{ marginTop: '1rem' }}>
-              <div className="form-group">
-                <label style={{fontSize:'0.8rem'}}>Update Status:</label>
-                <select 
-                  defaultValue={report.status} 
-                  onChange={(e) => {
-                    const remarks = prompt('Enter authority remarks:');
-                    handleUpdateStatus(report.id, e.target.value, remarks);
-                  }}
-                  style={{ width: '100%', padding: '5px' }}
-                >
-                  <option value="SUBMITTED">Submitted</option>
-                  <option value="UNDER_REVIEW">Under Review</option>
-                  <option value="ACTION_TAKEN">Action Taken</option>
-                  <option value="CLOSED">Closed</option>
-                </select>
-              </div>
-              {report.authorityRemarks && (
-                <div style={{ marginTop: '10px', fontSize: '0.85rem', background: '#f0f0f0', padding: '5px', borderRadius: '4px' }}>
-                  <strong>Remarks:</strong> {report.authorityRemarks}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
+          )}
+        </div>
+      ) : (
       <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
         {grievances.map(g => (
           <div key={g.id} className="report-card" style={{ height: 'fit-content' }}>
