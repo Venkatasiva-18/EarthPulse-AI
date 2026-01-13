@@ -12,22 +12,32 @@ import java.util.List;
 public class WaterQualityService {
     private final WaterQualityRepository waterQualityRepository;
     private final NotificationService notificationService;
+    private final MLService mlService;
 
     public WaterQualityData analyzeWaterQuality(WaterQualityData data) {
-        double score = 100.0;
+        Map<String, Object> mlResult = mlService.getWaterAnalysisFromML(
+            data.getPh(), data.getHardness(), data.getSolids(),
+            data.getChloramines(), data.getSulfate(), data.getConductivity(),
+            data.getOrganicCarbon(), data.getTrihalomethanes(), data.getTurbidity()
+        );
+
+        if (mlResult != null) {
+            data.setPotable((Boolean) mlResult.get("potable"));
+            data.setPotabilityScore(((Number) mlResult.get("potabilityScore")).doubleValue());
+        } else {
+            // Fallback to simple logic if ML fails
+            double score = 100.0;
+            if (data.getPh() < 6.5 || data.getPh() > 8.5) score -= 15;
+            if (data.getHardness() > 250) score -= 10;
+            if (data.getSolids() > 1000) score -= 20;
+            if (data.getChloramines() > 4) score -= 10;
+            if (data.getSulfate() > 250) score -= 15;
+            if (data.getTurbidity() > 5) score -= 10;
+            data.setPotabilityScore(Math.max(0, score));
+            data.setPotable(score > 60);
+        }
         
-        // Simple logic based on WHO guidelines
-        if (data.getPh() < 6.5 || data.getPh() > 8.5) score -= 15;
-        if (data.getHardness() > 250) score -= 10;
-        if (data.getSolids() > 1000) score -= 20;
-        if (data.getChloramines() > 4) score -= 10;
-        if (data.getSulfate() > 250) score -= 15;
-        if (data.getTurbidity() > 5) score -= 10;
-        
-        data.setPotabilityScore(Math.max(0, score));
-        data.setPotable(score > 60);
         data.setTimestamp(LocalDateTime.now());
-        
         WaterQualityData saved = waterQualityRepository.save(data);
 
         // Notify user

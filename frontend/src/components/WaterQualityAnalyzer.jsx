@@ -74,6 +74,26 @@ const WaterQualityAnalyzer = ({ onSelectOnMap, isSelecting }) => {
           <input type="number" value={data.solids} onChange={e => setData({...data, solids: parseFloat(e.target.value)})} style={{ width: '100%', padding: '5px' }} />
         </div>
         <div className="form-group">
+          <label style={{ fontSize: '0.75rem' }}>Chloramines (ppm)</label>
+          <input type="number" step="0.1" value={data.chloramines} onChange={e => setData({...data, chloramines: parseFloat(e.target.value)})} style={{ width: '100%', padding: '5px' }} />
+        </div>
+        <div className="form-group">
+          <label style={{ fontSize: '0.75rem' }}>Sulfate (mg/L)</label>
+          <input type="number" value={data.sulfate} onChange={e => setData({...data, sulfate: parseFloat(e.target.value)})} style={{ width: '100%', padding: '5px' }} />
+        </div>
+        <div className="form-group">
+          <label style={{ fontSize: '0.75rem' }}>Conductivity (μS/cm)</label>
+          <input type="number" value={data.conductivity} onChange={e => setData({...data, conductivity: parseFloat(e.target.value)})} style={{ width: '100%', padding: '5px' }} />
+        </div>
+        <div className="form-group">
+          <label style={{ fontSize: '0.75rem' }}>Organic Carbon (ppm)</label>
+          <input type="number" step="0.1" value={data.organicCarbon} onChange={e => setData({...data, organicCarbon: parseFloat(e.target.value)})} style={{ width: '100%', padding: '5px' }} />
+        </div>
+        <div className="form-group">
+          <label style={{ fontSize: '0.75rem' }}>Trihalomethanes (μg/L)</label>
+          <input type="number" step="0.1" value={data.trihalomethanes} onChange={e => setData({...data, trihalomethanes: parseFloat(e.target.value)})} style={{ width: '100%', padding: '5px' }} />
+        </div>
+        <div className="form-group">
           <label style={{ fontSize: '0.75rem' }}>Turbidity (NTU)</label>
           <input type="number" step="0.1" value={data.turbidity} onChange={e => setData({...data, turbidity: parseFloat(e.target.value)})} style={{ width: '100%', padding: '5px' }} />
         </div>

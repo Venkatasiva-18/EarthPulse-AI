@@ -2,8 +2,10 @@ import sys
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 import json
+import os
 from datetime import datetime, timedelta
 
+# Fallback Training Data
 X = np.array([
     [8, 0, 0, 20, 50], [12, 0, 1, 25, 40], [18, 0, 2, 22, 60],
     [8, 1, 1, 18, 55], [12, 1, 2, 28, 35], [18, 1, 0, 24, 45],
@@ -11,6 +13,20 @@ X = np.array([
     [8, 3, 0, 21, 48], [12, 3, 1, 24, 42], [18, 3, 2, 23, 58]
 ])
 y = np.array([40, 80, 150, 60, 120, 50, 180, 45, 90, 42, 85, 145])
+
+# Load from dataset if available
+dataset_path = "ml/aqi_dataset.csv"
+if not os.path.exists(dataset_path):
+    dataset_path = "EarthPulseAI/ml/aqi_dataset.csv"
+
+if os.path.exists(dataset_path):
+    try:
+        data = np.genfromtxt(dataset_path, delimiter=',', skip_header=1)
+        if data.shape[0] > 0:
+            X = data[:, :-1]
+            y = data[:, -1]
+    except:
+        pass
 
 model = RandomForestRegressor(n_estimators=100, random_state=42)
 model.fit(X, y)

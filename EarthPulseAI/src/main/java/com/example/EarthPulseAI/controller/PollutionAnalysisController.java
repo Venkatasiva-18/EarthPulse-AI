@@ -172,8 +172,11 @@ public class PollutionAnalysisController {
     @GetMapping("/industrial/risk-analysis")
     public ResponseEntity<Map<String, Object>> analyzeIndustrialRisk(
             @RequestParam String type,
-            @RequestParam Double emission) {
-        return ResponseEntity.ok(pollutionAnalysisService.analyzeIndustrialRisk(type, emission));
+            @RequestParam Double emission,
+            @RequestParam(defaultValue = "500") Double waterDist,
+            @RequestParam(defaultValue = "2000") Double residentialDist,
+            @RequestParam(defaultValue = "90") Double compliance) {
+        return ResponseEntity.ok(pollutionAnalysisService.analyzeIndustrialRisk(type, emission, waterDist, residentialDist, compliance));
     }
 
     @GetMapping("/summary")

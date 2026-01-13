@@ -5,6 +5,9 @@ import { Factory, Activity, AlertCircle, MapPin } from 'lucide-react';
 const IndustrialRiskAnalyzer = ({ onSelectOnMap, isSelecting }) => {
   const [type, setType] = useState('CHEMICAL');
   const [emission, setEmission] = useState(100);
+  const [waterDist, setWaterDist] = useState(500);
+  const [residentialDist, setResidentialDist] = useState(2000);
+  const [compliance, setCompliance] = useState(90);
   const [district, setDistrict] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -22,7 +25,7 @@ const IndustrialRiskAnalyzer = ({ onSelectOnMap, isSelecting }) => {
   const handleAnalyze = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:8080/api/pollution/industrial/risk-analysis?type=${type}&emission=${emission}`);
+      const response = await axios.get(`http://localhost:8080/api/pollution/industrial/risk-analysis?type=${type}&emission=${emission}&waterDist=${waterDist}&residentialDist=${residentialDist}&compliance=${compliance}`);
       setResult(response.data);
     } catch (error) {
       console.error('Error analyzing industrial risk:', error);
@@ -73,6 +76,20 @@ const IndustrialRiskAnalyzer = ({ onSelectOnMap, isSelecting }) => {
           <label style={{ fontSize: '0.75rem' }}>Emission Volume (Scale 1-500)</label>
           <input type="range" min="1" max="500" value={emission} onChange={e => setEmission(parseInt(e.target.value))} style={{ width: '100%' }} />
           <div style={{ textAlign: 'right', fontSize: '0.8rem' }}>{emission} Units</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div className="form-group">
+            <label style={{ fontSize: '0.75rem' }}>Dist to Water (m)</label>
+            <input type="number" value={waterDist} onChange={e => setWaterDist(parseInt(e.target.value))} style={{ width: '100%', padding: '5px' }} />
+          </div>
+          <div className="form-group">
+            <label style={{ fontSize: '0.75rem' }}>Dist to Residential (m)</label>
+            <input type="number" value={residentialDist} onChange={e => setResidentialDist(parseInt(e.target.value))} style={{ width: '100%', padding: '5px' }} />
+          </div>
+        </div>
+        <div className="form-group">
+          <label style={{ fontSize: '0.75rem' }}>Compliance Score (0-100)</label>
+          <input type="number" value={compliance} onChange={e => setCompliance(parseInt(e.target.value))} style={{ width: '100%', padding: '5px' }} />
         </div>
         <button onClick={handleAnalyze} className="btn" disabled={loading} style={{ background: '#f57c00' }}>
           {loading ? 'Calculating...' : 'Generate Risk Profile'}

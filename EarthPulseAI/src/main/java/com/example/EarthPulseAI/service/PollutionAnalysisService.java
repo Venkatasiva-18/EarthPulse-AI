@@ -26,6 +26,9 @@ public class PollutionAnalysisService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private MLService mlService;
+
     private static final Map<String, String> POLLUTION_TYPE_RECOMMENDATIONS = Map.ofEntries(
         Map.entry("TRAFFIC", "Reduce vehicle usage - use public transportation, carpool, or cycle"),
         Map.entry("INDUSTRIAL", "Support emission reduction regulations and clean energy adoption"),
@@ -261,10 +264,16 @@ public class PollutionAnalysisService {
         else return Prediction.TrendDirection.STABLE;
     }
 
-    public Map<String, Object> analyzeIndustrialRisk(String factoryType, double emissionVolume) {
+    public Map<String, Object> analyzeIndustrialRisk(String factoryType, double emissionVolume, 
+                                                     double waterDist, double residentialDist, double compliance) {
+        Map<String, Object> mlRisk = mlService.getIndustrialRiskFromML(factoryType, emissionVolume, waterDist, residentialDist, compliance);
+        if (mlRisk != null) {
+            return mlRisk;
+        }
+
+        // Fallback logic
         Map<String, Object> risk = new HashMap<>();
         
-        // Inspired by US EPA TRI Program
         double hazardFactor = switch (factoryType.toUpperCase()) {
             case "CHEMICAL" -> 2.5;
             case "METAL" -> 2.0;
