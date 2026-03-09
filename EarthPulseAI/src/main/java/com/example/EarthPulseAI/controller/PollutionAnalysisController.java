@@ -3,6 +3,7 @@ package com.example.EarthPulseAI.controller;
 import com.example.EarthPulseAI.model.*;
 import com.example.EarthPulseAI.service.PollutionAnalysisService;
 import com.example.EarthPulseAI.service.PredictionService;
+import com.example.EarthPulseAI.service.MLService;
 import com.example.EarthPulseAI.service.UserService;
 import com.example.EarthPulseAI.service.ReportService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class PollutionAnalysisController {
     private final PollutionAnalysisService pollutionAnalysisService;
     private final PredictionService predictionService;
     private final ReportService reportService;
+    private final MLService mlService;
     private final UserService userService;
 
     @GetMapping("/hotspots")
@@ -97,28 +99,45 @@ public class PollutionAnalysisController {
             
             Map<String, Object> mapData = new HashMap<>();
             
-            List<Map<String, Object>> locations = new ArrayList<>();
+            // Current Predictions (Hotspots)
+            List<Map<String, Object>> hotspots = new ArrayList<>();
             Set<String> seenLocations = new HashSet<>();
             
             for (Prediction pred : predictions) {
                 if (!seenLocations.contains(pred.getLocation())) {
                     seenLocations.add(pred.getLocation());
                     
-                    Map<String, Object> location = new HashMap<>();
-                    location.put("name", pred.getLocation());
-                    location.put("latitude", pred.getLatitude());
-                    location.put("longitude", pred.getLongitude());
-                    location.put("aqiValue", pred.getAqiValue());
-                    location.put("aqiRange", pred.getAqiRange());
-                    location.put("confidence", pred.getConfidencePercentage());
-                    location.put("pollutants", pred.getPollutantLevelsMap());
-                    location.put("trend", pred.getTrend());
+                    Map<String, Object> hotspot = new HashMap<>();
+                    hotspot.put("name", pred.getLocation());
+                    hotspot.put("latitude", pred.getLatitude());
+                    hotspot.put("longitude", pred.getLongitude());
+                    hotspot.put("aqiValue", pred.getAqiValue());
+                    hotspot.put("aqiRange", pred.getAqiRange());
+                    hotspot.put("type", "AIR");
+                    hotspot.put("color", getColorForAQI(pred.getAqiRange()));
                     
-                    locations.add(location);
+                    hotspots.add(hotspot);
                 }
             }
             
-            mapData.put("hotspots", locations);
+            // Verified User Reports
+            List<Report> verifiedReports = reportService.getVerifiedReports();
+            List<Map<String, Object>> reports = new ArrayList<>();
+            for (Report report : verifiedReports) {
+                Map<String, Object> reportData = new HashMap<>();
+                reportData.put("id", report.getId());
+                reportData.put("type", report.getPollutionType());
+                reportData.put("latitude", report.getLatitude());
+                reportData.put("longitude", report.getLongitude());
+                reportData.put("severity", report.getSeverity());
+                reportData.put("description", report.getDescription());
+                reportData.put("color", getColorForPollutionType(report.getPollutionType()));
+                
+                reports.add(reportData);
+            }
+            
+            mapData.put("hotspots", hotspots);
+            mapData.put("verifiedReports", reports);
             mapData.put("timestamp", LocalDateTime.now());
             
             return ResponseEntity.ok(mapData);
@@ -190,5 +209,43 @@ public class PollutionAnalysisController {
     public ResponseEntity<Map<String, Object>> getEnvironmentalData(Authentication authentication) {
         User user = userService.getUserByUsername(authentication.getName());
         return ResponseEntity.ok(pollutionAnalysisService.getAllEnvironmentalData(user));
+    }
+
+    @PostMapping("/retrain")
+    public ResponseEntity<Map<String, String>> retrainModels(Authentication authentication) {
+        User user = userService.getUserByUsername(authentication.getName());
+        if (user.getRole() != User.Role.ADMINISTRATOR && user.getRole() != User.Role.AUTHORITY) {
+            return ResponseEntity.status(403).body(Map.of("message", "Only administrators can trigger retraining"));
+        }
+        
+        boolean success = mlService.retrainModels();
+        if (success) {
+            return ResponseEntity.ok(Map.of("message", "Model retraining triggered successfully"));
+        } else {
+            return ResponseEntity.status(500).body(Map.of("message", "Model retraining failed"));
+        }
+    }
+
+    private String getColorForAQI(Prediction.AQIRange range) {
+        if (range == null) return "#808080"; // Gray
+        switch (range) {
+            case GOOD: return "#00E400"; // Green
+            case MODERATE: return "#FFFF00"; // Yellow
+            case POOR: return "#FF7E00"; // Orange
+            case SEVERE: return "#FF0000"; // Red
+            default: return "#808080";
+        }
+    }
+
+    private String getColorForPollutionType(String type) {
+        if (type == null) return "#808080";
+        switch (type.toUpperCase()) {
+            case "AIR": return "#00E400";
+            case "WATER": return "#0000FF"; // Blue
+            case "INDUSTRIAL": return "#A52A2A"; // Brown
+            case "NOISE": return "#800080"; // Purple
+            case "SOIL": return "#8B4513"; // Saddle Brown
+            default: return "#FF0000"; // Default Red
+        }
     }
 }

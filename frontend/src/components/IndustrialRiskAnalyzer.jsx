@@ -25,7 +25,9 @@ const IndustrialRiskAnalyzer = ({ onSelectOnMap, isSelecting }) => {
   const handleAnalyze = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:8080/api/pollution/industrial/risk-analysis?type=${type}&emission=${emission}&waterDist=${waterDist}&residentialDist=${residentialDist}&compliance=${compliance}`);
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await axios.get(`http://localhost:8080/api/pollution/industrial/risk-analysis?type=${type}&emission=${emission}&waterDist=${waterDist}&residentialDist=${residentialDist}&compliance=${compliance}`, { headers });
       setResult(response.data);
     } catch (error) {
       console.error('Error analyzing industrial risk:', error);

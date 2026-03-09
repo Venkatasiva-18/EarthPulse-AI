@@ -12,6 +12,7 @@ import AdminDashboard from './components/AdminDashboard';
 import Notifications from './components/Notifications';
 import Grievances from './components/Grievances';
 import Profile from './components/Profile';
+import Contact from './components/Contact';
 
 // Fix for default marker icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -97,6 +98,7 @@ const App = () => {
           <Route path="/" element={<Dashboard />} />
           <Route path="/login" element={<Login setToken={setToken} setUser={setUser} />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/grievances" element={token ? <Grievances /> : <Navigate to="/login" />} />
           <Route path="/authority" element={token ? <AuthorityDashboard /> : <Navigate to="/login" />} />
           <Route path="/admin" element={token && (user?.role === 'ADMINISTRATOR' || user?.role === 'MODERATOR' || user?.role === 'AUTHORITY') ? <AdminDashboard /> : <Navigate to="/login" />} />

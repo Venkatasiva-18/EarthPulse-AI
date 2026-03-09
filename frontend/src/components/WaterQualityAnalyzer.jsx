@@ -32,7 +32,9 @@ const WaterQualityAnalyzer = ({ onSelectOnMap, isSelecting }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:8080/api/water-quality/analyze', data);
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await axios.post('http://localhost:8080/api/water-quality/analyze', data, { headers });
       setResult(response.data);
     } catch (error) {
       console.error('Error analyzing water quality:', error);

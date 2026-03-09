@@ -11,6 +11,7 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     List<Report> findByDistrict(String district);
     List<Report> findByVillage(String village);
     List<Report> findByMandal(String mandal);
+    List<Report> findByVerified(Boolean verified);
     
     @Query("SELECT r.district as district, COUNT(r) as count FROM Report r GROUP BY r.district")
     List<Object[]> countReportsByDistrict();

@@ -29,6 +29,9 @@ public class PollutionAnalysisService {
     @Autowired
     private MLService mlService;
 
+    @Autowired
+    private RemediationService remediationService;
+
     private static final Map<String, String> POLLUTION_TYPE_RECOMMENDATIONS = Map.ofEntries(
         Map.entry("TRAFFIC", "Reduce vehicle usage - use public transportation, carpool, or cycle"),
         Map.entry("INDUSTRIAL", "Support emission reduction regulations and clean energy adoption"),
@@ -131,6 +134,23 @@ public class PollutionAnalysisService {
     }
 
     public RemediableMeasure generateRemediableMeasures(Report report, User user) {
+        // Try to generate using ML-based RemediationService first
+        try {
+            RemediableMeasure mlMeasure = remediationService.generateRemediationForReport(report);
+            if (mlMeasure != null) {
+                // Notify user
+                if (user != null) {
+                    notificationService.createNotification(user, 
+                        "New AI-generated remediable measures available for your " + report.getPollutionType() + " report.", 
+                        "INFO");
+                }
+                return mlMeasure;
+            }
+        } catch (Exception e) {
+            System.err.println("ML Remediation failed, falling back to rule-based: " + e.getMessage());
+        }
+
+        // Fallback to original rule-based logic
         RemediableMeasure measure = new RemediableMeasure();
         measure.setUser(user);
         measure.setReport(report);

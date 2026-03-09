@@ -104,20 +104,45 @@ public class MLService {
         }
     }
 
+    public Map<String, Object> getRemediationFromML(String pollutionType, String severity, String description) {
+        try {
+            String scriptPath = getScriptPath("remediate.py");
+            ProcessBuilder pb = new ProcessBuilder(getPythonCommand(), scriptPath,
+                pollutionType, severity, description != null ? description : "");
+            
+            String output = executeProcess(pb);
+            if (output == null) return null;
+            return mapper.readValue(output, Map.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     private String executeProcess(ProcessBuilder pb) throws Exception {
-        pb.redirectErrorStream(false);
+        pb.redirectErrorStream(true);
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
         String line;
-        String output = null;
+        StringBuilder fullOutput = new StringBuilder();
+        String jsonOutput = null;
+        
         while ((line = reader.readLine()) != null) {
+            fullOutput.append(line).append("\n");
             if (line.trim().startsWith("{")) {
-                output = line;
+                jsonOutput = line;
             }
         }
-        process.waitFor();
-        return output;
+        
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            System.err.println("ML Script failed with exit code " + exitCode);
+            System.err.println("Script Output:\n" + fullOutput.toString());
+            return null;
+        }
+        
+        return jsonOutput;
     }
 
     public void provideFeedback(int hour, int day, int severity, double temp, double humidity, int actualAqi) {
@@ -129,6 +154,18 @@ public class MLService {
             processBuilder.start();
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public boolean retrainModels() {
+        try {
+            String scriptPath = getScriptPath("train.py");
+            ProcessBuilder pb = new ProcessBuilder(getPythonCommand(), scriptPath);
+            String output = executeProcess(pb);
+            return output != null || pb.redirectErrorStream(); // executeProcess returns null on success if no JSON printed
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
         }
     }
 }

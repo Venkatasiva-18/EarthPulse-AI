@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Data
@@ -48,6 +50,14 @@ public class Report {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
+
+    @ManyToMany
+    @JoinTable(
+        name = "report_upvotes",
+        joinColumns = @JoinColumn(name = "report_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private Set<User> upvotedByUsers = new HashSet<>();
 
     public enum Severity {
         LOW, MEDIUM, HIGH

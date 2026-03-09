@@ -12,6 +12,7 @@ import java.util.List;
 import com.example.EarthPulseAI.service.UserService;
 import com.example.EarthPulseAI.exception.UnauthorizedException;
 import org.springframework.security.core.Authentication;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -76,8 +77,15 @@ public class ReportController {
     }
 
     @PostMapping("/{id}/upvote")
-    public ResponseEntity<Report> upvoteReport(@PathVariable Long id) {
-        return ResponseEntity.ok(reportService.upvoteReport(id));
+    public ResponseEntity<Report> upvoteReport(@PathVariable Long id, Authentication authentication, HttpServletRequest request) {
+        if (authentication != null && authentication.isAuthenticated()) {
+            User user = userService.getUserByUsername(authentication.getName());
+            return ResponseEntity.ok(reportService.upvoteReport(id, user));
+        }
+        
+        // Guest upvote based on IP
+        String ipAddress = request.getRemoteAddr();
+        return ResponseEntity.ok(reportService.upvoteReportAnonymous(id, ipAddress));
     }
 
     @PostMapping("/{id}/verify")

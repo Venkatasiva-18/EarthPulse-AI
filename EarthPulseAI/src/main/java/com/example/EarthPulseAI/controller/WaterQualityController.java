@@ -1,9 +1,12 @@
 package com.example.EarthPulseAI.controller;
 
 import com.example.EarthPulseAI.model.WaterQualityData;
+import com.example.EarthPulseAI.model.User;
 import com.example.EarthPulseAI.service.WaterQualityService;
+import com.example.EarthPulseAI.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -13,9 +16,14 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class WaterQualityController {
     private final WaterQualityService waterQualityService;
+    private final UserService userService;
 
     @PostMapping("/analyze")
-    public ResponseEntity<WaterQualityData> analyze(@RequestBody WaterQualityData data) {
+    public ResponseEntity<WaterQualityData> analyze(@RequestBody WaterQualityData data, Authentication authentication) {
+        if (authentication != null && authentication.isAuthenticated()) {
+            String username = authentication.getName();
+            userService.findByUsername(username).ifPresent(data::setUser);
+        }
         return ResponseEntity.ok(waterQualityService.analyzeWaterQuality(data));
     }
 

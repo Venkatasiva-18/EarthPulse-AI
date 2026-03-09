@@ -6,16 +6,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.example.EarthPulseAI.model.User;
+import com.example.EarthPulseAI.model.GuestUpvote;
 import com.example.EarthPulseAI.repository.UserRepository;
+import com.example.EarthPulseAI.repository.GuestUpvoteRepository;
 
 @Service
 @RequiredArgsConstructor
 public class ReportService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
+    private final GuestUpvoteRepository guestUpvoteRepository;
     private final NotificationService notificationService;
+    private final RemediationService remediationService;
 
     public Report createReport(Report report) {
         if (report.getTimestamp() == null) {
@@ -55,6 +62,14 @@ public class ReportService {
 
         Report savedReport = reportRepository.save(report);
         
+        // Generate remediation measures
+        try {
+            remediationService.generateRemediationForReport(savedReport);
+        } catch (Exception e) {
+            // Log error but don't fail the report submission
+            System.err.println("Failed to generate remediation measures: " + e.getMessage());
+        }
+        
         // Notify the reporter
         if (savedReport.getUser() != null) {
             notificationService.createNotification(savedReport.getUser(), 
@@ -65,23 +80,15 @@ public class ReportService {
         return savedReport;
     }
 
+    public List<Report> getVerifiedReports() {
+        return reportRepository.findByVerified(true);
+    }
+
     public List<Report> getAllReports() {
         return reportRepository.findAll();
     }
 
     public List<Report> getReportsForUser(User user) {
-        if (user.getRole() == User.Role.ADMINISTRATOR) {
-            return reportRepository.findAll();
-        } else if (user.getRole() == User.Role.MODERATOR) {
-            return reportRepository.findByState(user.getState());
-        } else if (user.getRole() == User.Role.AUTHORITY) {
-            return reportRepository.findByDistrict(user.getDistrict());
-        } else if (user.getRole() == User.Role.CITIZEN) {
-            // Citizens see reports in their district for awareness, or their own village
-            if (user.getDistrict() != null) {
-                return reportRepository.findByDistrict(user.getDistrict());
-            }
-        }
         return reportRepository.findAll();
     }
 
@@ -97,8 +104,38 @@ public class ReportService {
         return reportRepository.findByDistrict(location);
     }
     
-    public Report upvoteReport(Long reportId) {
+    public Report upvoteReport(Long reportId, User user) {
         Report report = reportRepository.findById(reportId).orElseThrow();
+        
+        // Check if user already upvoted
+        if (report.getUpvotedByUsers().contains(user)) {
+            return report;
+        }
+
+        // Prevent upvoting own report
+        if (report.getUser() != null && report.getUser().getId().equals(user.getId())) {
+            return report;
+        }
+
+        report.getUpvotedByUsers().add(user);
+        return applyUpvote(report);
+    }
+
+    public Report upvoteReportAnonymous(Long reportId, String ipAddress) {
+        Report report = reportRepository.findById(reportId).orElseThrow();
+        
+        // Check if this IP has already upvoted this report
+        if (guestUpvoteRepository.existsByReportAndIpAddress(report, ipAddress)) {
+            return report;
+        }
+
+        GuestUpvote guestUpvote = new GuestUpvote(report, ipAddress);
+        guestUpvoteRepository.save(guestUpvote);
+        
+        return applyUpvote(report);
+    }
+
+    private Report applyUpvote(Report report) {
         report.setUpvotes(report.getUpvotes() + 1);
         
         // Increase confidence score with upvotes

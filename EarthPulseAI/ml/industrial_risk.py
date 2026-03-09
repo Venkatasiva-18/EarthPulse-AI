@@ -1,57 +1,40 @@
 import sys
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+import joblib
 import json
 import os
+import csv
 
-# Simulated Training Data for Industrial Risk
-X = np.array([
-    [1, 1000, 500, 2000, 90],
-    [2, 2000, 200, 1500, 70],
-    [3, 5000, 100, 3000, 50],
-    [4, 800, 1000, 5000, 95],
-    [1, 3000, 50, 1000, 40],
-    [0, 500, 2000, 8000, 85],
-    [2, 4000, 300, 500, 30],
-    [3, 1500, 800, 4000, 75]
-])
-y = np.array([30, 60, 85, 20, 90, 10, 95, 45])
-
-# Load from dataset if available
-dataset_path = "ml/industrial_risk_dataset.csv"
-if not os.path.exists(dataset_path):
-    dataset_path = "EarthPulseAI/ml/industrial_risk_dataset.csv"
-
-if os.path.exists(dataset_path):
-    try:
-        # Load and encode factory type
-        type_map = {"GENERAL": 0, "CHEMICAL": 1, "METAL": 2, "PETROLEUM": 3, "PHARMACEUTICAL": 4}
-        with open(dataset_path, 'r') as f:
-            lines = f.readlines()[1:] # skip header
-            data_X = []
-            data_y = []
-            for line in lines:
-                parts = line.strip().split(',')
-                if len(parts) == 6:
-                    t_enc = type_map.get(parts[0].upper(), 0)
-                    row = [t_enc] + [float(x) for x in parts[1:5]]
-                    data_X.append(row)
-                    data_y.append(float(parts[5]))
-            if data_X:
-                X = np.array(data_X)
-                y = np.array(data_y)
-    except:
-        pass
-
-model = RandomForestRegressor(n_estimators=100, random_state=42)
-model.fit(X, y)
+def get_paths():
+    model_path = 'EarthPulseAI/ml/industrial_risk_model.pkl'
+    dataset_path = 'EarthPulseAI/ml/industrial_risk_dataset.csv'
+    if not os.path.exists(model_path):
+        model_path = 'ml/industrial_risk_model.pkl'
+        dataset_path = 'ml/industrial_risk_dataset.csv'
+    return model_path, dataset_path
 
 def analyze_industrial_risk(factory_type, emission_volume, water_dist, residential_dist, compliance):
-    type_map = {"GENERAL": 0, "CHEMICAL": 1, "METAL": 2, "PETROLEUM": 3, "PHARMACEUTICAL": 4}
+    model_path, dataset_path = get_paths()
+    
+    type_map = {"GENERAL": 0, "CHEMICAL": 1, "METAL": 2, "PETROLEUM": 3, "PHARMACEUTICAL": 4, "TEXTILE": 5, "FOOD": 6, "MINING": 7}
     type_encoded = type_map.get(factory_type.upper(), 0)
     
     features = np.array([[type_encoded, emission_volume, water_dist, residential_dist, compliance]])
-    prediction = model.predict(features)[0]
+    
+    if os.path.exists(model_path):
+        model = joblib.load(model_path)
+        prediction = model.predict(features)[0]
+    else:
+        # Fallback
+        prediction = (emission_volume / 50.0) - (compliance * 0.2)
+    
+    # Append to dataset
+    try:
+        with open(dataset_path, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([factory_type.upper(), int(emission_volume), int(water_dist), int(residential_dist), int(compliance), int(prediction)])
+    except:
+        pass
     
     risk_level = "LOW"
     if prediction > 75:

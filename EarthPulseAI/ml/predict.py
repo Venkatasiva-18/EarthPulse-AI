@@ -1,40 +1,41 @@
 import sys
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+import joblib
 import json
 import os
+import csv
 from datetime import datetime, timedelta
 
-# Fallback Training Data
-X = np.array([
-    [8, 0, 0, 20, 50], [12, 0, 1, 25, 40], [18, 0, 2, 22, 60],
-    [8, 1, 1, 18, 55], [12, 1, 2, 28, 35], [18, 1, 0, 24, 45],
-    [8, 2, 2, 15, 70], [12, 2, 0, 30, 30], [18, 2, 1, 26, 50],
-    [8, 3, 0, 21, 48], [12, 3, 1, 24, 42], [18, 3, 2, 23, 58]
-])
-y = np.array([40, 80, 150, 60, 120, 50, 180, 45, 90, 42, 85, 145])
+def get_paths():
+    model_path = 'EarthPulseAI/ml/aqi_model.pkl'
+    dataset_path = 'EarthPulseAI/ml/aqi_dataset.csv'
+    if not os.path.exists(model_path):
+        model_path = 'ml/aqi_model.pkl'
+        dataset_path = 'ml/aqi_dataset.csv'
+    return model_path, dataset_path
 
-# Load from dataset if available
-dataset_path = "ml/aqi_dataset.csv"
-if not os.path.exists(dataset_path):
-    dataset_path = "EarthPulseAI/ml/aqi_dataset.csv"
-
-if os.path.exists(dataset_path):
+def predict_aqi(hour, day, severity, temp, humidity):
+    model_path, dataset_path = get_paths()
+    
+    if os.path.exists(model_path):
+        model = joblib.load(model_path)
+    else:
+        # Fallback to simple logic if model not trained
+        prediction = 30 + (severity * 50) + (temp * 0.5)
+    
+    input_data = np.array([[hour, day, severity, temp, humidity]])
+    
+    if os.path.exists(model_path):
+        prediction = model.predict(input_data)[0]
+    
+    # Append to dataset for future training
     try:
-        data = np.genfromtxt(dataset_path, delimiter=',', skip_header=1)
-        if data.shape[0] > 0:
-            X = data[:, :-1]
-            y = data[:, -1]
+        with open(dataset_path, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([hour, day, severity, int(temp), int(humidity), int(prediction)])
     except:
         pass
 
-model = RandomForestRegressor(n_estimators=100, random_state=42)
-model.fit(X, y)
-
-def predict_aqi(hour, day, severity, temp, humidity):
-    input_data = np.array([[hour, day, severity, temp, humidity]])
-    prediction = model.predict(input_data)[0]
-    
     if prediction <= 50:
         aqi_range = "GOOD"
     elif prediction <= 100:

@@ -346,6 +346,30 @@ const Dashboard = () => {
     return '#f44336'; // Severe - Red
   };
 
+  const POLLUTION_COLORS = {
+    'TRAFFIC': '#2196f3',      // Blue
+    'INDUSTRIAL': '#9c27b0',   // Purple
+    'CONSTRUCTION': '#ff9800', // Orange
+    'AGRICULTURAL': '#4caf50', // Green
+    'DUST': '#795548',         // Brown
+    'SMOKE': '#607d8b',        // Grey
+    'WATER': '#00bcd4',        // Cyan
+    'SOIL': '#8bc34a',         // Light Green
+    'NOISE': '#ffc107',        // Amber
+    'WASTE': '#e91e63',        // Pink
+    'AIR': '#f44336'           // Red for generic Air Pollution
+  };
+
+  const getPollutionColor = (type) => {
+    if (!type) return '#000000';
+    const normalized = type.toUpperCase().trim();
+    // Support partial match for custom types
+    for (const [key, color] of Object.entries(POLLUTION_COLORS)) {
+        if (normalized.includes(key)) return color;
+    }
+    return '#000000'; // Default black for unknown
+  };
+
   const chartData = {
     labels: stats.map(s => s[0]),
     datasets: [
@@ -425,6 +449,7 @@ const Dashboard = () => {
         anonymous: false
       });
       fetchReports();
+      fetchUserRecommendations();
     } catch (error) {
       console.error('Error submitting report:', error);
       alert('Failed to submit report. Please check your connection or login.');
@@ -862,6 +887,22 @@ const Dashboard = () => {
             }}>Search</button>
           </form>
         </div>
+
+        <div className="map-legend" style={{
+          position: 'absolute', bottom: '20px', right: '20px', zIndex: 1000,
+          background: 'white', padding: '10px', borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.15)', fontSize: '0.75rem',
+          maxHeight: '200px', overflowY: 'auto'
+        }}>
+          <strong style={{ display: 'block', marginBottom: '5px', borderBottom: '1px solid #eee', paddingBottom: '3px' }}>Pollution Types</strong>
+          {Object.entries(POLLUTION_COLORS).map(([type, color]) => (
+            <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: color, border: '1px solid #fff', boxShadow: '0 0 2px rgba(0,0,0,0.3)' }}></div>
+              <span style={{ color: '#444' }}>{type}</span>
+            </div>
+          ))}
+        </div>
+
         <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%' }}>
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
@@ -928,13 +969,30 @@ const Dashboard = () => {
             </CircleMarker>
           ))}
           {(reports || []).filter(r => r && r.latitude && r.longitude).map(report => (
-            <Marker key={report.id} position={[report.latitude, report.longitude]}>
+            <CircleMarker 
+              key={`report-${report.id}`} 
+              center={[report.latitude, report.longitude]}
+              radius={8}
+              pathOptions={{
+                color: 'white',
+                fillColor: getPollutionColor(report.pollutionType),
+                fillOpacity: 0.9,
+                weight: 1.5
+              }}
+            >
               <Popup>
-                <strong>{report.pollutionType}</strong><br />
-                {report.description}<br />
-                Severity: {report.severity}
+                <div style={{ minWidth: '150px' }}>
+                  <h3 style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: getPollutionColor(report.pollutionType) }}>
+                    {report.pollutionType}
+                  </h3>
+                  <div style={{ padding: '4px 8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '0.8rem', marginBottom: '8px' }}>
+                    <strong>Severity:</strong> {report.severity}
+                  </div>
+                  <p style={{ margin: '5px 0', fontSize: '0.8rem' }}>{report.description}</p>
+                  <small style={{ color: '#888', display: 'block', marginTop: '5px' }}>{new Date(report.timestamp).toLocaleString()}</small>
+                </div>
               </Popup>
-            </Marker>
+            </CircleMarker>
           ))}
           {environmentalData.waterSamples.map((sample, idx) => (
             <CircleMarker 
@@ -953,6 +1011,40 @@ const Dashboard = () => {
                 Potability Score: {sample.potabilityScore}<br />
                 Status: {sample.potable ? 'Safe' : 'Unsafe'}<br />
                 pH: {sample.ph}, Turbidity: {sample.turbidity}
+              </Popup>
+            </CircleMarker>
+          ))}
+          {reports.filter(r => r && r.latitude && r.longitude).map((report, idx) => (
+            <CircleMarker 
+              key={`report-${report.id || idx}`} 
+              center={[report.latitude, report.longitude]} 
+              radius={10}
+              pathOptions={{ 
+                color: '#ffffff', 
+                fillColor: getPollutionColor(report.pollutionType), 
+                fillOpacity: 1.0,
+                weight: 2
+              }}
+            >
+              <Popup>
+                <div style={{ minWidth: '150px' }}>
+                  <h3 style={{ margin: '0 0 5px 0', fontSize: '1rem', color: getPollutionColor(report.pollutionType) }}>{report.pollutionType}</h3>
+                  <div style={{ 
+                    padding: '3px 8px', 
+                    background: getPollutionColor(report.pollutionType), 
+                    color: 'white', 
+                    borderRadius: '4px', 
+                    display: 'inline-block', 
+                    fontSize: '0.75rem', 
+                    fontWeight: 'bold', 
+                    marginBottom: '8px' 
+                  }}>
+                    Severity: {report.severity || 'LOW'}
+                  </div>
+                  <p style={{ margin: '2px 0', fontSize: '0.85rem' }}><strong>Location:</strong> {report.district || report.address}</p>
+                  <p style={{ margin: '2px 0', fontSize: '0.85rem' }}><strong>Status:</strong> {report.status || 'SUBMITTED'}</p>
+                  {report.description && <p style={{ margin: '5px 0 0 0', fontSize: '0.75rem', fontStyle: 'italic', borderTop: '1px solid #eee', paddingTop: '5px' }}>{report.description}</p>}
+                </div>
               </Popup>
             </CircleMarker>
           ))}
