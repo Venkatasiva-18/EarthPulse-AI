@@ -1,0 +1,8 @@
+{
+    "AQI Forecasting Model": "98.29% (R^2: 0.9829, RMSE: 7.75)",
+    "Industrial Risk Profiler": "95.14% (R^2: 0.9514, RMSE: 8.23)",
+    "Water Quality Analyzer": "89.58%",
+    "Remediation Impact Predictor": "93.78% (R^2: 0.9378)",
+    "Overall Health Score Predictor": "92.22% (R^2: 0.9222)",
+    "NLP Description Analyzer": "96.25%"
+}

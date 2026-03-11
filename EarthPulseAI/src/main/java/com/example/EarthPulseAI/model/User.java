@@ -33,6 +33,7 @@ public class User {
     private String district;
     private String mandal;
     private String village;
+    @Column(columnDefinition = "TEXT")
     private String address;
 
     @Column(nullable = false)
@@ -49,6 +50,9 @@ public class User {
     
     @Column(columnDefinition = "LONGTEXT")
     private String profilePicture;
+
+    private String otp;
+    private Boolean verified = false;
 
     public enum Role {
         CITIZEN, MODERATOR, ADMINISTRATOR, AUTHORITY

@@ -1,6 +1,7 @@
 package com.example.EarthPulseAI.repository;
 
 import com.example.EarthPulseAI.model.Report;
+import com.example.EarthPulseAI.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import java.util.List;
@@ -12,6 +13,9 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     List<Report> findByVillage(String village);
     List<Report> findByMandal(String mandal);
     List<Report> findByVerified(Boolean verified);
+    
+    List<Report> findAllByOrderByTimestampDesc();
+    List<Report> findByUserOrderByTimestampDesc(User user);
     
     @Query("SELECT r.district as district, COUNT(r) as count FROM Report r GROUP BY r.district")
     List<Object[]> countReportsByDistrict();

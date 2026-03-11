@@ -6,6 +6,8 @@ const Profile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [formData, setFormData] = useState({});
   const [message, setMessage] = useState({ type: '', text: '' });
 

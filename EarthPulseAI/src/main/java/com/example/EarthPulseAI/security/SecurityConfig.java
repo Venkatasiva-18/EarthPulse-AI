@@ -1,8 +1,10 @@
 package com.example.EarthPulseAI.security;
 
-import lombok.RequiredArgsConstructor;
+import java.util.Arrays;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -10,19 +12,15 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.Arrays;
 
-import org.springframework.http.HttpMethod;
-import org.springframework.security.web.AuthenticationEntryPoint;
 import jakarta.servlet.http.HttpServletResponse;
-
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
@@ -37,12 +35,13 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> 
-                    auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    auth.requestMatchers("/api/water-quality/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/contact/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/reports/**").permitAll()
                         .requestMatchers("/api/predictions/**").permitAll()
                         .requestMatchers("/api/pollution/**").permitAll()
-                        .requestMatchers("/api/water-quality/**").permitAll()
                         .requestMatchers("/api/historical/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admin/users").hasAnyRole("ADMINISTRATOR", "MODERATOR", "AUTHORITY")
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRATOR")
@@ -64,7 +63,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        // Be explicit about origin patterns to work with allowCredentials(true)
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

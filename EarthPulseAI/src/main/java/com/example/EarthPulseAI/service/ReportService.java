@@ -85,11 +85,11 @@ public class ReportService {
     }
 
     public List<Report> getAllReports() {
-        return reportRepository.findAll();
+        return reportRepository.findAllByOrderByTimestampDesc();
     }
 
     public List<Report> getReportsForUser(User user) {
-        return reportRepository.findAll();
+        return reportRepository.findByUserOrderByTimestampDesc(user);
     }
 
     public List<Object[]> getReportsCountByCity() {

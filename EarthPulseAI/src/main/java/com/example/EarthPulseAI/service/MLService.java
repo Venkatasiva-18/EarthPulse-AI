@@ -51,11 +51,19 @@ public class MLService {
             prediction.setLongitude(lon);
             
             prediction.setAqiValue(((Number) resultMap.getOrDefault("aqiValue", 0)).intValue());
-            prediction.setAqiRange(Prediction.AQIRange.valueOf((String) resultMap.getOrDefault("aqiRange", "MODERATE")));
+            String aqiRangeStr = (String) resultMap.getOrDefault("aqiRange", "MODERATE");
+            try {
+                prediction.setAqiRange(Prediction.AQIRange.valueOf(aqiRangeStr));
+            } catch (Exception e) {
+                prediction.setAqiRange(Prediction.AQIRange.MODERATE);
+            }
             prediction.setConfidencePercentage(((Number) resultMap.getOrDefault("confidencePercentage", 0.0)).doubleValue());
             
             if (resultMap.containsKey("pollutantLevels")) {
-                prediction.setPollutantLevelsMap((Map<String, Double>) resultMap.get("pollutantLevels"));
+                Object levels = resultMap.get("pollutantLevels");
+                if (levels instanceof Map) {
+                    prediction.setPollutantLevelsMap((Map<String, Double>) levels);
+                }
             }
             
             prediction.setPredictedFor(LocalDateTime.now());
@@ -130,8 +138,9 @@ public class MLService {
         
         while ((line = reader.readLine()) != null) {
             fullOutput.append(line).append("\n");
-            if (line.trim().startsWith("{")) {
-                jsonOutput = line;
+            String trimmed = line.trim();
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                jsonOutput = trimmed;
             }
         }
         

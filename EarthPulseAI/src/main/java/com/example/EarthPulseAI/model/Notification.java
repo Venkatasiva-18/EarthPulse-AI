@@ -16,6 +16,7 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(columnDefinition = "TEXT")
     private String message;
     private String type; // e.g., "INFO", "WARNING", "CRITICAL"
     private LocalDateTime timestamp;

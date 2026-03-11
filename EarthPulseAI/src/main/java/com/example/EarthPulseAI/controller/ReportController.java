@@ -19,7 +19,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class ReportController {
     private final ReportService reportService;
     private final UserService userService;
@@ -52,12 +51,7 @@ public class ReportController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Report>> getAllReports(Authentication authentication) {
-        if (authentication != null && authentication.isAuthenticated()) {
-            String username = authentication.getName();
-            User user = userService.getUserByUsername(username);
-            return ResponseEntity.ok(reportService.getReportsForUser(user));
-        }
+    public ResponseEntity<List<Report>> getAllReports() {
         return ResponseEntity.ok(reportService.getAllReports());
     }
 

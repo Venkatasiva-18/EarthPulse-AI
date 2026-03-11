@@ -422,6 +422,23 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0;
+  text-decoration: underline;
+  transition: all 0.2s;
+}
+
+.btn-link:hover {
+  color: var(--primary-light);
+  transform: translateY(-1px);
+}
+
 /* Animations */
 @keyframes slideIn {
   from { transform: translateX(100%); opacity: 0; }

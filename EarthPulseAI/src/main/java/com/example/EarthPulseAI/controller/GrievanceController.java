@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/grievances")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class GrievanceController {
     private final GrievanceService grievanceService;
     private final UserService userService;

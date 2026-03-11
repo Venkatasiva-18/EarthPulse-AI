@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
 
 const Contact = () => {
@@ -9,12 +10,24 @@ const Contact = () => {
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Contact form submitted:', formData);
-    setSubmitted(true);
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setLoading(true);
+    setError('');
+    
+    try {
+      await axios.post('http://localhost:8080/api/contact', formData);
+      setSubmitted(true);
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (err) {
+      console.error('Contact form submission error:', err);
+      setError(err.response?.data?.message || 'Failed to send message. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -36,7 +49,7 @@ const Contact = () => {
               </div>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#555' }}>Email</div>
-                <div style={{ color: '#777' }}>support@earthpulse.ai</div>
+                <div style={{ color: '#777' }}>venkatasivaragala@gmail.com</div>
               </div>
             </div>
 
@@ -69,6 +82,7 @@ const Contact = () => {
 
         {/* Contact Form */}
         <div style={{ background: 'white', padding: '2rem', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+          {error && <div className="error" style={{ marginBottom: '1rem' }}>{error}</div>}
           {submitted ? (
             <div style={{ textAlign: 'center', padding: '3rem 0' }}>
               <div style={{ background: '#e8f5e9', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: '#4caf50' }}>
@@ -125,9 +139,14 @@ const Contact = () => {
                 ></textarea>
               </div>
 
-              <button type="submit" className="btn full-width" style={{ padding: '12px', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+              <button 
+                type="submit" 
+                className="btn full-width" 
+                disabled={loading}
+                style={{ padding: '12px', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', opacity: loading ? 0.7 : 1 }}
+              >
                 <Send size={20} />
-                Send Message
+                {loading ? 'Sending...' : 'Send Message'}
               </button>
             </form>
           )}

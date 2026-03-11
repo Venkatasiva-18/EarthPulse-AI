@@ -10,7 +10,6 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/historical")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class HistoricalDataController {
     private final HistoricalDataService historicalDataService;
 

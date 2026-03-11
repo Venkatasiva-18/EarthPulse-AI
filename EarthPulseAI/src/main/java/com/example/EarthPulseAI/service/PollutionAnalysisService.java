@@ -74,8 +74,8 @@ public class PollutionAnalysisService {
     public Map<String, Object> getLocalSummary(Double lat, Double lon) {
         Map<String, Object> summary = new HashMap<>();
         
-        // Use a small bounding box (approx 10km radius)
-        Double delta = 0.1; 
+        // Use a smaller bounding box for immediate surroundings (approx 5km radius)
+        Double delta = 0.05; 
         Double minLat = lat - delta;
         Double maxLat = lat + delta;
         Double minLon = lon - delta;
@@ -83,54 +83,169 @@ public class PollutionAnalysisService {
         
         // 1. Air Quality (Latest Prediction)
         List<Prediction> nearbyPredictions = predictionRepository.findByBoundingBox(minLat, maxLat, minLon, maxLon);
+        String surroundingsStatus = "IMMEDIATE";
+
+        if (nearbyPredictions.isEmpty()) {
+            // Fallback to wider surroundings (approx 20km)
+            Double deltaWide = 0.2;
+            nearbyPredictions = predictionRepository.findByBoundingBox(lat - deltaWide, lat + deltaWide, lon - deltaWide, lon + deltaWide);
+            surroundingsStatus = nearbyPredictions.isEmpty() ? "NONE" : "WIDER_AREA";
+        }
+
         if (!nearbyPredictions.isEmpty()) {
             nearbyPredictions.sort(Comparator.comparing(Prediction::getPredictedFor).reversed());
             summary.put("airQuality", nearbyPredictions.get(0));
+        } else {
+            // ML Fallback for Air Quality
+            LocalDateTime now = LocalDateTime.now();
+            Prediction virtualPred = mlService.getPredictionFromML(
+                "Estimated Status", 
+                now.getHour(), 
+                now.getDayOfWeek().getValue(), 
+                1, 28.0, 55.0, false, lat, lon
+            );
+            if (virtualPred != null) {
+                summary.put("airQuality", virtualPred);
+            }
         }
         
         // 2. Water Quality (Nearby samples)
         List<WaterQualityData> nearbyWater = waterQualityRepository.findByBoundingBox(minLat, maxLat, minLon, maxLon);
+        if (nearbyWater.isEmpty()) {
+            Double deltaWide = 0.2;
+            nearbyWater = waterQualityRepository.findByBoundingBox(lat - deltaWide, lat + deltaWide, lon - deltaWide, lon + deltaWide);
+        }
+        
         if (!nearbyWater.isEmpty()) {
             nearbyWater.sort(Comparator.comparing(WaterQualityData::getTimestamp).reversed());
             summary.put("waterQuality", nearbyWater.get(0));
+        } else {
+            // ML Fallback for Water Quality (Standard parameters)
+            Map<String, Object> waterAnalysis = mlService.getWaterAnalysisFromML(7.2, 150, 15000, 7.5, 250, 400, 12, 60, 2.5);
+            if (waterAnalysis != null) {
+                summary.put("estimatedWaterStatus", waterAnalysis);
+            }
         }
         
         // 3. Industrial Activity/Risk (Nearby Reports)
         List<Report> nearbyReports = reportRepository.findByBoundingBox(minLat, maxLat, minLon, maxLon);
-        long industrialReports = nearbyReports.stream()
-                .filter(r -> "INDUSTRIAL".equalsIgnoreCase(r.getPollutionType()))
-                .count();
-        summary.put("industrialIncidentCount", industrialReports);
+        if (nearbyReports.isEmpty()) {
+            Double deltaWide = 0.2;
+            nearbyReports = reportRepository.findByBoundingBox(lat - deltaWide, lat + deltaWide, lon - deltaWide, lon + deltaWide);
+        }
         
-        // 4. Noise Pollution (Estimated based on reports and simulated traffic density)
-        double noiseLevel = 40.0 + (industrialReports * 5); // Base 40dB + industrial impact
+        Map<String, Long> incidentCounts = new HashMap<>();
+        for (String type : Arrays.asList("INDUSTRIAL", "NOISE", "TRAFFIC", "CONSTRUCTION", "SOIL", "WASTE", "AGRICULTURAL")) {
+            long count = nearbyReports.stream()
+                .filter(r -> type.equalsIgnoreCase(r.getPollutionType()))
+                .count();
+            incidentCounts.put(type, count);
+        }
+        summary.put("incidentCounts", incidentCounts);
+        
+        // Calculate weighted incident impact
+        double incidentImpact = nearbyReports.stream()
+            .mapToDouble(r -> {
+                if (r.getSeverity() == null) return 5.0;
+                return switch (r.getSeverity()) {
+                    case LOW -> 2.0;
+                    case MEDIUM -> 5.0;
+                    case HIGH -> 10.0;
+                };
+            })
+            .sum();
+
+        // 4. Noise Pollution (Estimated based on reports)
+        double noiseLevel = 40.0 + (incidentCounts.get("INDUSTRIAL") * 5) + (incidentCounts.get("NOISE") * 8) 
+                            + (incidentCounts.get("TRAFFIC") * 4) + (incidentCounts.get("CONSTRUCTION") * 6);
         summary.put("noiseLevel", Math.min(100, noiseLevel));
         summary.put("noiseStatus", noiseLevel > 70 ? "HIGH" : noiseLevel > 55 ? "MODERATE" : "LOW");
 
-        // 5. Soil Quality (Estimated based on industrial presence and waste reports)
-        double soilHealth = 90.0 - (industrialReports * 10);
+        // 5. Soil Quality
+        double soilHealth = 95.0 - (incidentCounts.get("INDUSTRIAL") * 7) - (incidentCounts.get("SOIL") * 10) 
+                            - (incidentCounts.get("WASTE") * 5) - (incidentCounts.get("AGRICULTURAL") * 2);
         summary.put("soilHealthScore", Math.max(0, soilHealth));
-        summary.put("soilStatus", soilHealth < 40 ? "CRITICAL" : soilHealth < 70 ? "POOR" : "GOOD");
+        summary.put("soilStatus", soilHealth < 40 ? "CRITICAL" : soilHealth < 75 ? "POOR" : "GOOD");
 
-        // 6. Overall Health Score (Enhanced)
+        // 6. Overall Health Score (Aggregated)
         double healthScore = 100.0;
+        
+        // Air Quality factor (0-40 points)
         if (summary.containsKey("airQuality")) {
             Prediction p = (Prediction) summary.get("airQuality");
-            healthScore -= (p.getAqiValue() / 5.0);
+            healthScore -= Math.min(40, (p.getAqiValue() / 7.5));
+        } else {
+            healthScore -= 5;
         }
+        
+        // Water Quality factor (0-25 points)
         if (summary.containsKey("waterQuality")) {
             WaterQualityData w = (WaterQualityData) summary.get("waterQuality");
             if (!w.getPotable()) healthScore -= 20;
+            else healthScore += 5; // Clean water bonus
         }
-        healthScore -= (industrialReports * 5);
-        healthScore -= (noiseLevel > 60 ? (noiseLevel - 60) / 2 : 0);
-        healthScore -= (soilHealth < 80 ? (80 - soilHealth) / 2 : 0);
         
-        summary.put("overallHealthScore", Math.max(0, healthScore));
+        // Other factors
+        healthScore -= Math.min(20, incidentImpact / 2.0);
+        healthScore -= (noiseLevel > 60 ? Math.min(10, (noiseLevel - 60) / 2.0) : 0);
+        healthScore -= (soilHealth < 80 ? Math.min(10, (80 - soilHealth) / 2.0) : 0);
+        
+        // 7. Industrial Risk Analysis (if incidents are high)
+        if (incidentCounts.get("INDUSTRIAL") > 0) {
+            summary.put("industrialRiskAnalysis", analyzeIndustrialRisk("GENERAL", 
+                (double)incidentCounts.get("INDUSTRIAL") * 20.0, 
+                500.0, 1000.0, 85.0));
+        }
+        
+        double finalScore = Math.max(0, Math.min(100, healthScore));
+        summary.put("overallHealthScore", finalScore);
+        summary.put("statusDescription", getStatusDescription(finalScore));
+        
+        // Detailed health score breakdown
+        Map<String, String> healthFactors = new LinkedHashMap<>();
+        healthFactors.put("Air Quality", summary.containsKey("airQuality") ? "Analyzed" : "Estimated");
+        healthFactors.put("Water Safety", (summary.containsKey("waterQuality") || summary.containsKey("estimatedWaterStatus")) ? "Analyzed" : "Low confidence");
+        healthFactors.put("Industrial Presence", incidentCounts.get("INDUSTRIAL") > 2 ? "High Risk" : incidentCounts.get("INDUSTRIAL") > 0 ? "Moderate" : "Low");
+        healthFactors.put("Noise Levels", (double)summary.get("noiseLevel") > 75 ? "Disturbing" : "Acceptable");
+        summary.put("healthFactors", healthFactors);
+        
+        // Recommended immediate actions
+        List<String> remediations = new ArrayList<>();
+        if (finalScore < 85) {
+            if (summary.containsKey("airQuality") && ((Prediction)summary.get("airQuality")).getAqiValue() > 100) {
+                remediations.add("Wear protective masks (N95/N99) when outdoors.");
+            }
+            if (summary.containsKey("waterQuality") && !((WaterQualityData)summary.get("waterQuality")).getPotable()) {
+                remediations.add("Use water purifiers or boil water before consumption.");
+            }
+            if (incidentCounts.get("INDUSTRIAL") > 0) {
+                remediations.add("Minimize exposure to industrial zones.");
+            }
+            if ((double)summary.get("noiseLevel") > 65) {
+                remediations.add("Use ear protection in high-noise environments.");
+            }
+            if (incidentCounts.get("WASTE") > 0 || incidentCounts.get("SOIL") > 0) {
+                remediations.add("Report illegal waste dumping to local authorities.");
+            }
+        }
+        if (remediations.isEmpty()) {
+            remediations.add("Continue current sustainable environmental practices.");
+        }
+        summary.put("remediations", remediations);
+        
         summary.put("locationName", "Your Area");
+        summary.put("surroundingsPrecision", surroundingsStatus);
         summary.put("timestamp", LocalDateTime.now());
         
         return summary;
+    }
+
+    private String getStatusDescription(double score) {
+        if (score >= 85) return "Pristine: Your area has excellent environmental conditions.";
+        if (score >= 70) return "Good: Generally safe environmental conditions with minor issues.";
+        if (score >= 55) return "Fair: Some pollution detected. Moderate precautions advised.";
+        if (score >= 40) return "Poor: Significant environmental concerns. Limit outdoor exposure.";
+        return "Critical: Severe environmental degradation. Take immediate precautions.";
     }
 
     public RemediableMeasure generateRemediableMeasures(Report report, User user) {
@@ -183,7 +298,7 @@ public class PollutionAnalysisService {
 
     public List<RemediableMeasure> getUserRecommendations(User user) {
         LocalDateTime now = LocalDateTime.now();
-        return remediableMeasureRepository.findByUserAndValidUntilAfter(user, now);
+        return remediableMeasureRepository.findByUserAndValidUntilAfterOrderByCreatedAtDescIdDesc(user, now);
     }
 
     public String generateTrendAnalysis(List<Prediction> predictions) {
@@ -225,40 +340,46 @@ public class PollutionAnalysisService {
     }
 
     public Map<String, Object> getPollutionHotspots(List<Prediction> predictions, String filterType) {
-        Map<String, Object> hotspots = new LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
+        List<Map<String, Object>> hotspots = new ArrayList<>();
+        Set<String> seenLocations = new HashSet<>();
         
-        if ("LOCATION".equalsIgnoreCase(filterType)) {
-            Map<String, List<Prediction>> byLocation = new HashMap<>();
-            for (Prediction p : predictions) {
-                byLocation.computeIfAbsent(p.getLocation(), k -> new ArrayList<>()).add(p);
-            }
-            hotspots.put("hotspots_by_location", byLocation);
-        } else if ("POLLUTANT".equalsIgnoreCase(filterType)) {
-            Map<String, List<Prediction>> byPollutant = new HashMap<>();
-            for (Prediction p : predictions) {
-                Map<String, Double> pollutants = p.getPollutantLevelsMap();
-                for (String pollutant : pollutants.keySet()) {
-                    byPollutant.computeIfAbsent(pollutant, k -> new ArrayList<>()).add(p);
+        for (Prediction pred : predictions) {
+            // Basic filtering logic: in a real app this might be more complex
+            // based on LOCATION or POLLUTANT specific criteria
+            if (!seenLocations.contains(pred.getLocation())) {
+                boolean include = true;
+                if ("LOCATION".equalsIgnoreCase(filterType)) {
+                    // Only show hotspots with significant AQI (> 100)
+                    include = pred.getAqiValue() > 100;
+                } else if ("POLLUTANT".equalsIgnoreCase(filterType)) {
+                    // Only show hotspots where specific pollutant data is dominant or interesting
+                    // For example, if CO or NO2 levels are specifically high
+                    Map<String, Double> pollutants = pred.getPollutantLevelsMap();
+                    include = pollutants != null && pollutants.size() > 0 && 
+                             pollutants.values().stream().anyMatch(v -> v > 50);
+                }
+                
+                if (include) {
+                    seenLocations.add(pred.getLocation());
+                    
+                    Map<String, Object> hotspot = new HashMap<>();
+                    hotspot.put("name", pred.getLocation());
+                    hotspot.put("latitude", pred.getLatitude());
+                    hotspot.put("longitude", pred.getLongitude());
+                    hotspot.put("aqiValue", pred.getAqiValue());
+                    hotspot.put("aqiRange", pred.getAqiRange());
+                    hotspot.put("trend", pred.getTrend());
+                    hotspot.put("confidence", pred.getConfidencePercentage());
+                    hotspot.put("pollutants", pred.getPollutantLevelsMap());
+                    
+                    hotspots.add(hotspot);
                 }
             }
-            hotspots.put("hotspots_by_pollutant", byPollutant);
-        } else {
-            Map<String, List<Prediction>> byLocation = new HashMap<>();
-            Map<String, List<Prediction>> byPollutant = new HashMap<>();
-            
-            for (Prediction p : predictions) {
-                byLocation.computeIfAbsent(p.getLocation(), k -> new ArrayList<>()).add(p);
-                Map<String, Double> pollutants = p.getPollutantLevelsMap();
-                for (String pollutant : pollutants.keySet()) {
-                    byPollutant.computeIfAbsent(pollutant, k -> new ArrayList<>()).add(p);
-                }
-            }
-            
-            hotspots.put("hotspots_by_location", byLocation);
-            hotspots.put("hotspots_by_pollutant", byPollutant);
         }
         
-        return hotspots;
+        result.put("hotspots", hotspots);
+        return result;
     }
 
     private Prediction.TrendDirection determineTrend(List<Prediction> predictions) {

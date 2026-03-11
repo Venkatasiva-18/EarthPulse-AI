@@ -13,5 +13,5 @@ public interface RemediableMeasureRepository extends JpaRepository<RemediableMea
     List<RemediableMeasure> findByUser(User user);
     List<RemediableMeasure> findByUserAndStatus(User user, RemediableMeasure.Status status);
     List<RemediableMeasure> findByPollutionType(String pollutionType);
-    List<RemediableMeasure> findByUserAndValidUntilAfter(User user, LocalDateTime dateTime);
+    List<RemediableMeasure> findByUserAndValidUntilAfterOrderByCreatedAtDescIdDesc(User user, LocalDateTime dateTime);
 }

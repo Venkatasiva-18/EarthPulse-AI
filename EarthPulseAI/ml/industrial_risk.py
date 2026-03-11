@@ -22,11 +22,18 @@ def analyze_industrial_risk(factory_type, emission_volume, water_dist, residenti
     features = np.array([[type_encoded, emission_volume, water_dist, residential_dist, compliance]])
     
     if os.path.exists(model_path):
-        model = joblib.load(model_path)
+        model_data = joblib.load(model_path)
+        if isinstance(model_data, dict):
+            model = model_data.get('model')
+        else:
+            model = model_data
         prediction = model.predict(features)[0]
     else:
         # Fallback
         prediction = (emission_volume / 50.0) - (compliance * 0.2)
+    
+    # Clamp prediction between 0 and 100
+    prediction = max(0, min(100, prediction))
     
     # Append to dataset
     try:

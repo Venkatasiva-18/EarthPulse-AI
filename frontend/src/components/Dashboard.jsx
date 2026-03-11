@@ -32,29 +32,62 @@ ChartJS.register(
 
 const HeatmapLayer = ({ points }) => {
   const map = useMap();
+  const heatLayerRef = React.useRef(null);
+
   useEffect(() => {
-    if (!map || !points || points.length === 0) return;
-    
-    // Clear existing heat layers if any (manual check)
-    const heat = L.heatLayer(points, { 
-      radius: 35, 
-      blur: 20, 
-      maxZoom: 10,
-      max: 1.0,
-      gradient: { 0.2: 'blue', 0.4: 'cyan', 0.6: 'lime', 0.8: 'yellow', 1.0: 'red' }
-    }).addTo(map);
-    
+    if (!map) return;
+
+    const createLayer = () => {
+      // Cleanup existing layer
+      if (heatLayerRef.current) {
+        map.removeLayer(heatLayerRef.current);
+        heatLayerRef.current = null;
+      }
+
+      // Validate map size to prevent Canvas width=0 errors
+      const size = map.getSize();
+      if (size.x <= 0 || size.y <= 0) {
+        console.warn('Map size is 0, skipping heatmap layer creation');
+        map.invalidateSize();
+        return;
+      }
+
+      if (!points || points.length === 0) return;
+
+      try {
+        heatLayerRef.current = L.heatLayer(points, { 
+          radius: 35, 
+          blur: 20, 
+          maxZoom: 10,
+          max: 1.0,
+          gradient: { 0.2: 'blue', 0.4: 'cyan', 0.6: 'lime', 0.8: 'yellow', 1.0: 'red' }
+        }).addTo(map);
+      } catch (err) {
+        console.error('Heatmap error:', err);
+      }
+    };
+
+    // Delay slightly to ensure DOM is ready and map container has dimensions
+    const timer = setTimeout(() => {
+      requestAnimationFrame(createLayer);
+    }, 100);
+
     return () => {
-      if (map) map.removeLayer(heat);
+      clearTimeout(timer);
+      if (heatLayerRef.current && map) {
+        map.removeLayer(heatLayerRef.current);
+        heatLayerRef.current = null;
+      }
     };
   }, [map, points]);
+
   return null;
 };
 
 const MapController = ({ center }) => {
   const map = useMap();
   useEffect(() => {
-    if (center) {
+    if (center && center[0] && center[1]) {
       map.flyTo(center, 12);
     }
   }, [center, map]);
@@ -70,7 +103,7 @@ const MapEvents = ({ onLocationSelect }) => {
   return null;
 };
 
-const Dashboard = () => {
+const Dashboard = ({ token }) => {
   const lang = localStorage.getItem('lang') || 'en';
   const t = translations[lang];
   const [reports, setReports] = useState([]);
@@ -110,6 +143,10 @@ const Dashboard = () => {
   const handleLocationSelect = async (latlng) => {
     if (currentSelectionMode === 'NONE') return;
     const { lat, lng } = latlng;
+    
+    // Refresh local status data for the new location
+    fetchLocalPollution(lat, lng);
+    fetchLocalSummary(lat, lng);
     
     // Update coordinates for all relevant states or current mode
     if (currentSelectionMode === 'POLLUTION') {
@@ -165,11 +202,11 @@ const Dashboard = () => {
           // Find the water analyzer's setter if we had one, 
           // but better to just use a global or pass a callback
           window.dispatchEvent(new CustomEvent('map-location-selected', { 
-            detail: { lat, lng, district, mode: 'WATER' } 
+            detail: { lat, lng, district: districtCandidate, mode: 'WATER' } 
           }));
         } else if (currentSelectionMode === 'INDUSTRIAL') {
           window.dispatchEvent(new CustomEvent('map-location-selected', { 
-            detail: { lat, lng, district, mode: 'INDUSTRIAL' } 
+            detail: { lat, lng, district: districtCandidate, mode: 'INDUSTRIAL' } 
           }));
         }
       }
@@ -222,11 +259,13 @@ const Dashboard = () => {
         }
       );
     }
-  }, []);
+  }, [token]);
 
   const fetchLocalSummary = async (lat, lon) => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/pollution/summary?lat=${lat}&lon=${lon}`);
+      const token = localStorage.getItem('token');
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get(`http://localhost:8080/api/pollution/summary?lat=${lat}&lon=${lon}`, config);
       setLocalSummary(response.data);
     } catch (error) {
       console.error('Error fetching local summary:', error);
@@ -246,7 +285,9 @@ const Dashboard = () => {
 
   const fetchHistoricalData = async (location) => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/historical/trends?location=${location}`);
+      const token = localStorage.getItem('token');
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get(`http://localhost:8080/api/historical/trends?location=${location}`, config);
       setHistoricalData(response.data);
     } catch (error) {
       console.error('Error fetching historical data:', error);
@@ -280,7 +321,9 @@ const Dashboard = () => {
 
   const fetchMapData = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/pollution/map-data');
+      const token = localStorage.getItem('token');
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get('http://localhost:8080/api/pollution/map-data', config);
       if (response.data && response.data.hotspots) {
         setMapData(response.data.hotspots);
       }
@@ -291,7 +334,9 @@ const Dashboard = () => {
 
   const fetchEnvironmentalData = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/pollution/environmental-data');
+      const token = localStorage.getItem('token');
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get('http://localhost:8080/api/pollution/environmental-data', config);
       setEnvironmentalData(response.data);
     } catch (error) {
       console.error('Error fetching environmental data:', error);
@@ -300,7 +345,9 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/reports/stats/by-date');
+      const token = localStorage.getItem('token');
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get('http://localhost:8080/api/reports/stats/by-date', config);
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -309,7 +356,9 @@ const Dashboard = () => {
 
   const fetchHotspots = async () => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/pollution/hotspots?filterType=${filterType}`);
+      const token = localStorage.getItem('token');
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get(`http://localhost:8080/api/pollution/hotspots?filterType=${filterType}`, config);
       setHotspots(response.data);
     } catch (error) {
       console.error('Error fetching hotspots:', error);
@@ -402,9 +451,8 @@ const Dashboard = () => {
   const fetchReports = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:8080/api/reports', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get('http://localhost:8080/api/reports', config);
       const newReports = response.data;
       
       // Check for new high severity reports to alert
@@ -495,7 +543,26 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const { latitude, longitude } = formData;
-      const response = await axios.post(`http://localhost:8080/api/predictions/generate?location=${location}&hour=12&day=1&severity=2&temp=25&humidity=50&lat=${latitude}&lon=${longitude}`);
+      const hour = new Date().getHours();
+      const day = new Date().getDay();
+      const severity = formData.severity === 'HIGH' ? 3 : formData.severity === 'MEDIUM' ? 2 : 1;
+      
+      const token = localStorage.getItem('token');
+      const config = {
+        params: {
+          location,
+          hour,
+          day,
+          severity,
+          lat: latitude,
+          lon: longitude
+        }
+      };
+      if (token) {
+        config.headers = { Authorization: `Bearer ${token}` };
+      }
+
+      const response = await axios.post(`http://localhost:8080/api/predictions/generate`, null, config);
       if (response.data) {
         setPrediction(response.data);
         fetchTrendAnalysis(location);
@@ -514,7 +581,11 @@ const Dashboard = () => {
     setFilterType(newFilterType);
     setTimeout(() => {
       axios.get(`http://localhost:8080/api/pollution/hotspots?filterType=${newFilterType}`)
-        .then(response => setHotspots(response.data))
+        .then(response => {
+          if (response.data && response.data.hotspots) {
+            setMapData(response.data.hotspots);
+          }
+        })
         .catch(error => console.error('Error fetching hotspots:', error));
     }, 0);
   };
@@ -548,7 +619,7 @@ const Dashboard = () => {
   };
 
   const mapPoints = [
-    ...(reports || []).filter(r => r && r.latitude && r.longitude).map(r => [r.latitude, r.longitude, (r.severity || 'LOW') === 'HIGH' ? 1.0 : (r.severity || 'LOW') === 'MEDIUM' ? 0.6 : 0.3]),
+    ...(reports || []).filter(r => r && r.latitude && r.longitude && r.status !== 'CLOSED' && r.status !== 'RESOLVED').map(r => [r.latitude, r.longitude, (r.severity || 'LOW') === 'HIGH' ? 1.0 : (r.severity || 'LOW') === 'MEDIUM' ? 0.6 : 0.3]),
     ...(mapData || []).filter(p => p && p.latitude && p.longitude).map(p => [p.latitude, p.longitude, Math.min(1.0, (p.aqiValue || 0) / 200)]),
     ...(globalData || []).filter(g => g && g.latitude && g.longitude && !isNaN(g.aqi)).map(g => [g.latitude, g.longitude, Math.min(1.0, (g.aqi || 0) / 300)])
   ];
@@ -573,8 +644,20 @@ const Dashboard = () => {
       <aside className="sidebar">
         {localSummary && (
           <div className="prediction-box" style={{ background: '#f3e5f5', borderLeft: '4px solid #9c27b0', marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '1.1rem', color: '#7b1fa2', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Info size={20} /> Local Environmental Status
+            <h2 style={{ fontSize: '1.1rem', color: '#7b1fa2', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Info size={20} /> Local Environmental Status
+              </div>
+              <span style={{ 
+                fontSize: '0.65rem', 
+                padding: '2px 6px', 
+                borderRadius: '10px', 
+                background: localSummary.surroundingsPrecision === 'IMMEDIATE' ? '#e8f5e9' : localSummary.surroundingsPrecision === 'WIDER_AREA' ? '#fff3e0' : '#ffebee',
+                color: localSummary.surroundingsPrecision === 'IMMEDIATE' ? '#2e7d32' : localSummary.surroundingsPrecision === 'WIDER_AREA' ? '#ef6c00' : '#c62828',
+                border: '1px solid currentColor'
+              }}>
+                {localSummary.surroundingsPrecision === 'IMMEDIATE' ? '📍 Surrounding' : localSummary.surroundingsPrecision === 'WIDER_AREA' ? '🔍 Wider Area' : '❓ No Data'}
+              </span>
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div style={{ background: 'white', padding: '8px', borderRadius: '4px', textAlign: 'center' }}>
@@ -818,7 +901,32 @@ const Dashboard = () => {
         <hr />
         
         <h2>Live Reports</h2>
-        {reports.map(report => (
+        {[...reports].sort((a, b) => {
+          // 1. Proximity sorting if user location is available
+          if (mapCenter && mapCenter[0] && mapCenter[1]) {
+            const distA = Math.sqrt(Math.pow(a.latitude - mapCenter[0], 2) + Math.pow(a.longitude - mapCenter[1], 2));
+            const distB = Math.sqrt(Math.pow(b.latitude - mapCenter[0], 2) + Math.pow(b.longitude - mapCenter[1], 2));
+            
+            // Define "Nearby" as within ~50km (0.5 degrees)
+            const isNearA = distA < 0.5;
+            const isNearB = distB < 0.5;
+            
+            // If one is nearby and the other isn't, nearby comes first
+            if (isNearA !== isNearB) {
+              return isNearA ? -1 : 1;
+            }
+            
+            // If both are nearby, sort by latest timestamp first
+            if (isNearA && isNearB) {
+                const timeDiff = new Date(b.timestamp) - new Date(a.timestamp);
+                if (timeDiff !== 0) return timeDiff;
+                return distA - distB; // Ties broken by distance
+            }
+          }
+          
+          // 2. Default: Latest submission first
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        }).map(report => (
           <div key={report.id} className={`report-card severity-${(report.severity || 'LOW').toLowerCase()}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -916,7 +1024,7 @@ const Dashboard = () => {
               <Popup>Selected Location for Report</Popup>
             </Marker>
           )}
-          {globalData.map((g, idx) => g.latitude && g.longitude && (
+          {(globalData || []).filter(g => g && g.latitude && g.longitude).map((g, idx) => (
             <CircleMarker 
               key={`global-${idx}`} 
               center={[g.latitude, g.longitude]} 
@@ -968,33 +1076,7 @@ const Dashboard = () => {
               </Popup>
             </CircleMarker>
           ))}
-          {(reports || []).filter(r => r && r.latitude && r.longitude).map(report => (
-            <CircleMarker 
-              key={`report-${report.id}`} 
-              center={[report.latitude, report.longitude]}
-              radius={8}
-              pathOptions={{
-                color: 'white',
-                fillColor: getPollutionColor(report.pollutionType),
-                fillOpacity: 0.9,
-                weight: 1.5
-              }}
-            >
-              <Popup>
-                <div style={{ minWidth: '150px' }}>
-                  <h3 style={{ margin: '0 0 5px 0', fontSize: '0.9rem', color: getPollutionColor(report.pollutionType) }}>
-                    {report.pollutionType}
-                  </h3>
-                  <div style={{ padding: '4px 8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '0.8rem', marginBottom: '8px' }}>
-                    <strong>Severity:</strong> {report.severity}
-                  </div>
-                  <p style={{ margin: '5px 0', fontSize: '0.8rem' }}>{report.description}</p>
-                  <small style={{ color: '#888', display: 'block', marginTop: '5px' }}>{new Date(report.timestamp).toLocaleString()}</small>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-          {environmentalData.waterSamples.map((sample, idx) => (
+          {environmentalData.waterSamples.filter(s => s && s.latitude && s.longitude).map((sample, idx) => (
             <CircleMarker 
               key={`water-${idx}`} 
               center={[sample.latitude, sample.longitude]} 
@@ -1014,7 +1096,7 @@ const Dashboard = () => {
               </Popup>
             </CircleMarker>
           ))}
-          {reports.filter(r => r && r.latitude && r.longitude).map((report, idx) => (
+          {reports.filter(r => r && r.latitude && r.longitude && r.status !== 'CLOSED' && r.status !== 'RESOLVED').map((report, idx) => (
             <CircleMarker 
               key={`report-${report.id || idx}`} 
               center={[report.latitude, report.longitude]} 
@@ -1043,6 +1125,7 @@ const Dashboard = () => {
                   </div>
                   <p style={{ margin: '2px 0', fontSize: '0.85rem' }}><strong>Location:</strong> {report.district || report.address}</p>
                   <p style={{ margin: '2px 0', fontSize: '0.85rem' }}><strong>Status:</strong> {report.status || 'SUBMITTED'}</p>
+                  <small style={{ color: '#888', display: 'block', margin: '5px 0' }}>{new Date(report.timestamp).toLocaleString()}</small>
                   {report.description && <p style={{ margin: '5px 0 0 0', fontSize: '0.75rem', fontStyle: 'italic', borderTop: '1px solid #eee', paddingTop: '5px' }}>{report.description}</p>}
                 </div>
               </Popup>

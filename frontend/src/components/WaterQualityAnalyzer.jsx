@@ -5,6 +5,8 @@ import { Droplets, ShieldCheck, AlertTriangle, MapPin } from 'lucide-react';
 const WaterQualityAnalyzer = ({ onSelectOnMap, isSelecting }) => {
   const [data, setData] = useState({
     district: '',
+    latitude: null,
+    longitude: null,
     ph: 7.0,
     hardness: 150.0,
     solids: 500.0,
@@ -21,7 +23,12 @@ const WaterQualityAnalyzer = ({ onSelectOnMap, isSelecting }) => {
   useEffect(() => {
     const handleMapLocation = (e) => {
       if (e.detail.mode === 'WATER') {
-        setData(prev => ({ ...prev, district: e.detail.district }));
+        setData(prev => ({ 
+          ...prev, 
+          district: e.detail.district,
+          latitude: e.detail.lat,
+          longitude: e.detail.lng
+        }));
       }
     };
     window.addEventListener('map-location-selected', handleMapLocation);
@@ -33,7 +40,11 @@ const WaterQualityAnalyzer = ({ onSelectOnMap, isSelecting }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      // Only send Authorization header if token is present and looks valid (not the string "null")
+      const headers = (token && token !== 'null' && token !== 'undefined') 
+        ? { Authorization: `Bearer ${token}` } 
+        : {};
+      
       const response = await axios.post('http://localhost:8080/api/water-quality/analyze', data, { headers });
       setResult(response.data);
     } catch (error) {
@@ -41,6 +52,29 @@ const WaterQualityAnalyzer = ({ onSelectOnMap, isSelecting }) => {
       alert('Failed to analyze water quality.');
     }
     setLoading(false);
+  };
+
+  const getStatusColor = (status, score) => {
+    if (status === 'EXCELLENT' || score >= 90) return { bg: '#e8f5e9', text: '#2e7d32' };
+    if (status === 'GOOD' || score >= 75) return { bg: '#f1f8e9', text: '#558b2f' };
+    if (status === 'ACCEPTABLE' || score >= 60) return { bg: '#fff9c4', text: '#f57f17' };
+    if (status === 'POOR' || score >= 40) return { bg: '#fff3e0', text: '#ef6c00' };
+    if (status === 'UNSAFE' || score >= 36) return { bg: '#ffebee', text: '#c62828' };
+    return { bg: '#212121', text: '#ff5252' }; // Darker/Serious for Critical
+  };
+
+  const getStatusLabel = (status, score) => {
+    if (status) {
+        if (status === 'ACCEPTABLE') return 'ACCEPTABLE (TREATMENT RECOMMENDED)';
+        if (status === 'CRITICAL') return 'CRITICAL HAZARD!';
+        return status;
+    }
+    if (score >= 90) return 'EXCELLENT';
+    if (score >= 75) return 'GOOD';
+    if (score >= 60) return 'ACCEPTABLE (TREATMENT RECOMMENDED)';
+    if (score >= 40) return 'POOR';
+    if (score >= 36) return 'UNSAFE / NOT POTABLE';
+    return 'CRITICAL HAZARD / TOXIC';
   };
 
   return (
@@ -63,6 +97,11 @@ const WaterQualityAnalyzer = ({ onSelectOnMap, isSelecting }) => {
             <MapPin size={16} />
           </button>
         </div>
+        {data.latitude && (
+          <div style={{ gridColumn: 'span 2', fontSize: '0.75rem', color: '#1976d2', background: '#e3f2fd', padding: '4px 8px', borderRadius: '4px' }}>
+            📍 Selected: {data.latitude.toFixed(4)}, {data.longitude.toFixed(4)}
+          </div>
+        )}
         <div className="form-group">
           <label style={{ fontSize: '0.75rem' }}>pH Level (0-14)</label>
           <input type="number" step="0.1" value={data.ph} onChange={e => setData({...data, ph: parseFloat(e.target.value)})} style={{ width: '100%', padding: '5px' }} />
@@ -113,23 +152,36 @@ const WaterQualityAnalyzer = ({ onSelectOnMap, isSelecting }) => {
               borderRadius: '20px', 
               fontSize: '0.8rem', 
               fontWeight: 'bold',
-              background: result.potable ? '#e8f5e9' : '#ffebee',
-              color: result.potable ? '#2e7d32' : '#c62828',
+              background: getStatusColor(result.status, result.potabilityScore).bg,
+              color: getStatusColor(result.status, result.potabilityScore).text,
               display: 'flex',
               alignItems: 'center',
               gap: '5px'
             }}>
-              {result.potable ? <ShieldCheck size={16} /> : <AlertTriangle size={16} />}
-              {result.potable ? 'POTABLE' : 'NOT POTABLE'}
+              {result.potabilityScore >= 60 ? <ShieldCheck size={16} /> : <AlertTriangle size={16} />}
+              {getStatusLabel(result.status, result.potabilityScore)}
             </span>
           </div>
           <div style={{ marginTop: '10px', fontSize: '0.85rem' }}>
-            <p><strong>Potability Score:</strong> {Number(result.potabilityScore).toFixed(1)}%</p>
+            <p><strong>Potability Score:</strong> {Number(result.potabilityScore).toFixed(1)}% ({result.potable ? 'Potable' : 'Not Potable'})</p>
             <div style={{ width: '100%', background: '#eee', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{ width: `${result.potabilityScore}%`, background: result.potable ? '#4caf50' : '#f44336', height: '100%' }}></div>
+              <div style={{ width: `${result.potabilityScore}%`, background: result.potabilityScore >= 90 ? '#4caf50' : result.potabilityScore >= 60 ? '#8bc34a' : '#f44336', height: '100%' }}></div>
             </div>
-            <p style={{ marginTop: '10px', fontSize: '0.8rem', fontStyle: 'italic', color: '#666' }}>
-              *This analysis is based on provided parameters and generic WHO guidelines. Always use certified testing for drinking water.
+            
+            <div style={{ marginTop: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '4px', borderLeft: `3px solid ${getStatusColor(result.status, result.potabilityScore).text}` }}>
+                <strong>Recommendation:</strong>
+                <p style={{ margin: '5px 0 0 0', fontSize: '0.8rem' }}>
+                    {result.potabilityScore >= 90 ? "Excellent quality. Safe for direct consumption." :
+                     result.potabilityScore >= 75 ? "Good quality. Safe for drinking, basic filtration optional." :
+                     result.potabilityScore >= 60 ? "Acceptable quality but treatment (boiling/active carbon filtration) is recommended before drinking." :
+                     result.potabilityScore >= 40 ? "Poor quality. Not safe for direct consumption. Heavy treatment required." :
+                     result.potabilityScore >= 36 ? "Unsafe for direct consumption. Heavy multi-stage treatment required." :
+                     "CRITICAL HAZARD / TOXIC. Do not consume. This source contains parameters far beyond safety limits."}
+                </p>
+            </div>
+
+            <p style={{ marginTop: '10px', fontSize: '0.75rem', fontStyle: 'italic', color: '#888' }}>
+              *This analysis is based on provided parameters and generic WHO/BIS guidelines. Always use certified testing for drinking water.
             </p>
           </div>
         </div>

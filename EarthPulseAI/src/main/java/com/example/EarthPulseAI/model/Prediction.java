@@ -30,32 +30,35 @@ public class Prediction {
     @Enumerated(EnumType.STRING)
     private AQIRange aqiRange;
     
-    @Column(columnDefinition = "JSON")
-    private String pollutantLevels;
+    @Enumerated(EnumType.STRING)
+    private TrendDirection trend;
     
     private Double confidencePercentage;
+    
     private LocalDateTime predictedFor;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    @Enumerated(EnumType.STRING)
-    private TrendDirection trend;
+    @Column(columnDefinition = "JSON")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String pollutantLevels;
 
     public enum AQIRange {
         GOOD, MODERATE, POOR, SEVERE
     }
-    
+
     public enum TrendDirection {
         INCREASING, DECREASING, STABLE
     }
     
+    @com.fasterxml.jackson.annotation.JsonProperty("pollutantLevels")
     public Map<String, Double> getPollutantLevelsMap() {
         try {
-            if (pollutantLevels == null) return new HashMap<>();
+            if (pollutantLevels == null) return new java.util.HashMap<>();
             ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(pollutantLevels, HashMap.class);
+            return mapper.readValue(pollutantLevels, java.util.HashMap.class);
         } catch (Exception e) {
-            return new HashMap<>();
+            return new java.util.HashMap<>();
         }
     }
     

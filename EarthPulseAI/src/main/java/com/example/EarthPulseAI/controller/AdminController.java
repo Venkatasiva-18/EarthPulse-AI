@@ -14,7 +14,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class AdminController {
     private final UserService userService;
 

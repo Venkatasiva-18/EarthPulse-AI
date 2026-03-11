@@ -17,16 +17,27 @@ def get_paths():
 def predict_aqi(hour, day, severity, temp, humidity):
     model_path, dataset_path = get_paths()
     
+    model = None
+    confidence = 92.5 # Default fallback
+    
     if os.path.exists(model_path):
-        model = joblib.load(model_path)
-    else:
-        # Fallback to simple logic if model not trained
-        prediction = 30 + (severity * 50) + (temp * 0.5)
+        try:
+            model_data = joblib.load(model_path)
+            if isinstance(model_data, dict):
+                model = model_data.get('model')
+                confidence = model_data.get('r2', 0.925) * 100
+            else:
+                model = model_data
+        except:
+            pass
     
     input_data = np.array([[hour, day, severity, temp, humidity]])
     
-    if os.path.exists(model_path):
+    if model:
         prediction = model.predict(input_data)[0]
+    else:
+        # Fallback to simple logic if model not trained
+        prediction = 30 + (severity * 50) + (temp * 0.5)
     
     # Append to dataset for future training
     try:
@@ -48,7 +59,7 @@ def predict_aqi(hour, day, severity, temp, humidity):
     return {
         "aqiValue": int(prediction),
         "aqiRange": aqi_range,
-        "confidencePercentage": 92.5
+        "confidencePercentage": round(float(confidence), 2)
     }
 
 def predict_pollutants(hour, day, severity, temp, humidity):

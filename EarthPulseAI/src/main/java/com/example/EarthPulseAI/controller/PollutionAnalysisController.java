@@ -200,8 +200,16 @@ public class PollutionAnalysisController {
 
     @GetMapping("/summary")
     public ResponseEntity<Map<String, Object>> getLocalSummary(
-            @RequestParam Double lat,
-            @RequestParam Double lon) {
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lon,
+            Authentication authentication) {
+        
+        if (lat == null || lon == null) {
+            User user = userService.getUserByUsername(authentication.getName());
+            lat = user.getLatitude();
+            lon = user.getLongitude();
+        }
+        
         return ResponseEntity.ok(pollutionAnalysisService.getLocalSummary(lat, lon));
     }
 

@@ -18,6 +18,7 @@ public class Report {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(columnDefinition = "TEXT")
     private String address;
     private String state;
     private String country;
@@ -34,6 +35,7 @@ public class Report {
     @Enumerated(EnumType.STRING)
     private Severity severity;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
     private String mediaUrl;
 
@@ -45,6 +47,7 @@ public class Report {
     @Enumerated(EnumType.STRING)
     private ReportStatus status = ReportStatus.SUBMITTED;
     
+    @Column(columnDefinition = "TEXT")
     private String authorityRemarks;
 
     @ManyToOne

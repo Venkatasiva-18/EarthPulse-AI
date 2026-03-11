@@ -37,6 +37,7 @@ public class WaterQualityData {
     
     private Boolean potable;
     private Double potabilityScore;
+    private String status;
     
     private LocalDateTime timestamp;
     

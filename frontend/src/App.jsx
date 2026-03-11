@@ -95,7 +95,7 @@ const App = () => {
         </header>
 
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Dashboard token={token} />} />
           <Route path="/login" element={<Login setToken={setToken} setUser={setUser} />} />
           <Route path="/register" element={<Register />} />
           <Route path="/contact" element={<Contact />} />

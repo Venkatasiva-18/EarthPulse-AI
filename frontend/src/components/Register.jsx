@@ -57,7 +57,30 @@ const Register = () => {
   });
   const [error, setError] = useState('');
   const [step, setStep] = useState(1); // 1: Role Selection, 2: Form
+  const [showOtp, setShowOtp] = useState(false);
+  const [otp, setOtp] = useState('');
   const navigate = useNavigate();
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('http://localhost:8080/api/auth/verify-otp', { email: formData.email, otp });
+      alert('Email verified successfully! You can now login.');
+      navigate('/login');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid or expired OTP');
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      await axios.post('http://localhost:8080/api/auth/resend-otp', { email: formData.email });
+      alert('OTP resent successfully!');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to resend OTP';
+      setError(msg);
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -72,13 +95,16 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     console.log("Submitting registration data:", formData);
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/register', formData);
-      console.log("Registration response:", response.data);
-      alert('Registration successful! Please login.');
-      navigate('/login');
+      await axios.post('http://localhost:8080/api/auth/register', formData);
+      setShowOtp(true);
+      setTimeout(() => {
+        alert('Registration successful! Please check your email for the verification code.');
+      }, 100);
     } catch (err) {
+      console.error("DEBUG: Registration error details:", err.response?.data);
       const msg = err.response?.data?.message || err.message || 'Registration failed.';
       setError(`Registration failed: ${msg}`);
     }
@@ -155,6 +181,43 @@ const Register = () => {
       console.error('Reverse geocoding error:', error);
     }
   };
+
+  if (showOtp) {
+    return (
+      <div className="auth-container full-page">
+        <div className="auth-card">
+          <h2>Verify Your Email</h2>
+          <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '20px' }}>
+            Enter the 6-digit verification code sent to <strong>{formData.email}</strong>
+          </p>
+          {error && <p className="error">{error}</p>}
+          <form onSubmit={handleVerifyOtp}>
+            <div className="form-group">
+              <input 
+                type="text" 
+                placeholder="6-digit OTP" 
+                value={otp} 
+                onChange={(e) => setOtp(e.target.value)} 
+                required 
+                maxLength="6"
+              />
+            </div>
+            <button type="submit" className="btn full-width">Verify Email</button>
+          </form>
+          <div style={{ marginTop: '15px', textAlign: 'center' }}>
+            <button onClick={handleResendOtp} className="btn-link" style={{ background: 'none', border: 'none', color: '#2196f3', cursor: 'pointer' }}>
+              Resend OTP
+            </button>
+          </div>
+          <p className="auth-footer">
+            <button onClick={() => setShowOtp(false)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer' }}>
+              Back to Registration
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 1) {
     return (

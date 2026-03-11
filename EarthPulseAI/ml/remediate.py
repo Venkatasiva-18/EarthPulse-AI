@@ -1,41 +1,44 @@
 import sys
 import json
 import re
+import joblib
+import os
 
 def analyze_description_nlp(description):
     if not description:
         return []
     
-    # NLP-lite: Keyword-based suggestion refinement
-    nlp_suggestions = []
+    model_path = 'EarthPulseAI/ml/nlp_model.pkl'
+    if not os.path.exists(model_path):
+        model_path = 'ml/nlp_model.pkl'
     
-    keywords = {
-        "health": ["breathing", "cough", "asthma", "eye", "skin", "rash", "health", "sick"],
-        "construction": ["dust", "cement", "construction", "building", "digging"],
-        "industrial": ["smoke", "chemical", "smell", "factory", "industrial", "toxic"],
-        "water_health": ["stomach", "drinking", "fever", "diarrhea"],
-        "noise_health": ["sleep", "headache", "concentration", "ear"]
-    }
+    if not os.path.exists(model_path):
+        return ["NLP model not found. Using fallback analysis."]
 
-    # Search for health-related concerns in the description
-    found_categories = []
-    for category, terms in keywords.items():
-        if any(term in description.lower() for term in terms):
-            found_categories.append(category)
-
-    if "health" in found_categories or "breathing" in description.lower():
-        nlp_suggestions.append("Immediate consultation with a healthcare professional is recommended for respiratory symptoms.")
-    
-    if "construction" in found_categories:
-        nlp_suggestions.append("The detected construction dust requires specialized fine-particle filtering masks (N95 or higher).")
-
-    if "industrial" in found_categories:
-        nlp_suggestions.append("Alert local environmental authorities about potential chemical emissions immediately.")
-
-    if "water_health" in found_categories:
-        nlp_suggestions.append("Cease all use of local water for consumption until professional testing is completed.")
-
-    return nlp_suggestions
+    try:
+        model_data = joblib.load(model_path)
+        vectorizer = model_data['vectorizer']
+        model = model_data['model']
+        labels = model_data['labels']
+        
+        X_vec = vectorizer.transform([description])
+        predictions = model.predict(X_vec)[0]
+        
+        detected = {labels[i]: predictions[i] for i in range(len(labels))}
+        
+        nlp_suggestions = []
+        if detected.get('HealthSymptom'):
+            nlp_suggestions.append("Immediate medical consultation is advised for the detected health symptoms.")
+        
+        if detected.get('PollutionSource'):
+            nlp_suggestions.append("Identify and report the detected pollution source to local authorities.")
+            
+        if detected.get('EnvironmentalHazard'):
+            nlp_suggestions.append("Caution: Hazardous environmental conditions detected. Use protective gear.")
+            
+        return nlp_suggestions
+    except Exception as e:
+        return [f"NLP analysis error: {str(e)}"]
 
 def get_remediation_measures(pollution_type, severity, description=""):
     pollution_type = pollution_type.upper()
